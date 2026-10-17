@@ -15,7 +15,24 @@ It's a free replacement for Shape. Everything runs on this laptop; nothing is ho
 
 ## Daily use
 
-The quickest way to sync and open the dashboard in one step:
+The quickest way, from any folder in PowerShell:
+
+```powershell
+garmin          # open the dashboard
+garmin sync     # sync new Garmin data first, then open the dashboard
+garmin help     # show the options
+```
+
+The `garmin` command is a small function in your PowerShell profile (`$PROFILE`). It calls `start_dashboard.bat` (open) or `sync_and_open.ps1` (sync + open).
+You can also double-click `start_dashboard.bat` in Explorer.
+
+- **"garmin is not recognized"**: the terminal was opened before the profile existed. Open a new terminal, or run `. $PROFILE` once (dot, space, `$PROFILE`).
+- **Setting it up again** (e.g. on a new laptop): PowerShell's execution policy must allow local scripts (`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`). Then add this line to your profile (`notepad $PROFILE`, create the file if asked), adjusting the path:
+  ```powershell
+  function garmin { param([string]$Action) $p = "C:\Users\jornk\dev\persoonlijk\garmin_overview"; if ($Action -eq "sync") { & "$p\sync_and_open.ps1" } else { & "$p\start_dashboard.bat" } }
+  ```
+
+Without the `garmin` command:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\sync_and_open.ps1          # sync, then open the dashboard
