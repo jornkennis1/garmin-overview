@@ -25,6 +25,9 @@ from garminconnect.activity_details import parse_activity_detail_metrics
 import config
 from db.database import connect, get_state, set_state, upsert
 from garmin_sync.auth import LoginError, get_client, save_tokens
+from garmin_sync.features import update_features
+from garmin_sync.metrics import update_trimp
+from garmin_sync.tagging import apply_auto_tags
 
 PAGE_SIZE = 100
 RAW_SAMPLE_DIR = config.DATA_DIR / "raw" / "samples"
@@ -247,6 +250,7 @@ def sync_activity_details(client, conn, since: str | None) -> int:
                 samples,
             )
         conn.execute("UPDATE activities SET details_fetched = 1 WHERE activity_id = ?", (aid,))
+        conn.execute("DELETE FROM activity_features WHERE activity_id = ?", (aid,))
         conn.commit()
         done += 1
         if done % 25 == 0 or done == len(todo):
@@ -254,17 +258,90 @@ def sync_activity_details(client, conn, since: str | None) -> int:
     return done
 
 
+def parse_laps(activity_id: int, splits: dict, start_utc: str | None) -> list[dict]:
+    rows, offset = [], 0.0
+    t0 = datetime.fromisoformat(start_utc) if start_utc else None
+    laps = first(splits, "lapDTOs") or []
+    for i, lap in enumerate(laps, start=1):
+        duration = first(lap, "elapsedDuration", "duration")
+        start = first(lap, "startTimeGMT")
+        if t0 and isinstance(start, str):
+            try:
+                offset = (datetime.fromisoformat(start.replace("Z", "")[:19]) - t0).total_seconds()
+            except ValueError:
+                pass
+        rows.append({
+            "activity_id": activity_id,
+            "lap_index": int(first(lap, "lapIndex") or i),
+            "start_offset_s": offset,
+            "duration_s": duration,
+            "moving_s": first(lap, "movingDuration"),
+            "distance_m": first(lap, "distance"),
+            "avg_hr": first(lap, "averageHR"),
+            "max_hr": first(lap, "maxHR"),
+            "avg_speed_mps": first(lap, "averageSpeed"),
+            "elev_gain_m": first(lap, "elevationGain"),
+            "elev_loss_m": first(lap, "elevationLoss"),
+            "intensity": first(lap, "intensityType"),
+        })
+        offset += duration or 0
+    return rows
+
+
+def store_laps(conn, activity_id: int, laps: list[dict]) -> None:
+    conn.execute("DELETE FROM activity_laps WHERE activity_id = ?", (activity_id,))
+    for lap in laps:
+        upsert(conn, "activity_laps", lap, ("activity_id", "lap_index"))
+    conn.execute("UPDATE activities SET laps_fetched = 1 WHERE activity_id = ?", (activity_id,))
+    conn.execute("DELETE FROM activity_features WHERE activity_id = ?", (activity_id,))  # recompute later
+
+
+def sync_laps(client, conn, since: str | None) -> int:
+    """Fetch laps (splits) for activities that don't have them yet. Runs first, newest first."""
+    skip = ",".join(f"'{t}'" for t in config.NO_LAP_TYPES)
+    conn.execute(f"UPDATE activities SET laps_fetched = 1 WHERE laps_fetched = 0 AND sport_type IN ({skip})")
+    conn.commit()
+    sql = ("SELECT activity_id, start_time_local, start_time_utc FROM activities "
+           "WHERE laps_fetched = 0 AND source = 'api'")
+    params: list = []
+    if since:
+        sql += " AND start_time_local >= ?"
+        params.append(since)
+    run_types = ",".join(f"'{t}'" for t in config.RUN_TYPES)
+    todo = conn.execute(
+        sql + f" ORDER BY sport_type IN ({run_types}) DESC, start_time_local DESC", params
+    ).fetchall()
+    if not todo:
+        return 0
+    print(f"Laps: {len(todo)} activities to fetch (runs first) ...", flush=True)
+    for done, row in enumerate(todo, start=1):
+        aid = row["activity_id"]
+        try:
+            splits = call(client.get_activity_splits, aid, sample="activity_splits")
+        except GarminConnectNotFoundError:
+            splits = {}
+        except GarminConnectConnectionError as e:
+            print(f"  skipping laps for {aid}: {e}", flush=True)
+            continue
+        store_laps(conn, aid, parse_laps(aid, splits or {}, row["start_time_utc"]))
+        conn.commit()
+        if done % 50 == 0 or done == len(todo):
+            print(f"  ... {done}/{len(todo)}", flush=True)
+    return len(todo)
+
+
 # ---------------------------------------------------------------- daily metrics (per day)
 
 def parse_user_summary(s: dict) -> dict:
+    """Handles both the flat per-day summary and the nested v2 range summary."""
     return {
-        "resting_hr": first(s, "restingHeartRate"),
-        "stress_avg": non_negative(first(s, "averageStressLevel")),
-        "steps": first(s, "totalSteps"),
-        "bb_high": first(s, "bodyBatteryHighestValue"),
-        "bb_low": first(s, "bodyBatteryLowestValue"),
-        "bb_charged": first(s, "bodyBatteryChargedValue"),
-        "bb_drained": first(s, "bodyBatteryDrainedValue"),
+        "resting_hr": first(s, "restingHeartRate", "heartRate.restingValue"),
+        "stress_avg": non_negative(first(s, "averageStressLevel", "stress.avgLevel")),
+        "steps": first(s, "totalSteps", "movement.steps.value"),
+        "bb_high": first(s, "bodyBatteryHighestValue", "bodyBattery.maxValue"),
+        "bb_low": first(s, "bodyBatteryLowestValue", "bodyBattery.minValue"),
+        "bb_charged": first(s, "bodyBatteryChargedValue", "bodyBattery.chargedValue"),
+        "bb_drained": first(s, "bodyBatteryDrainedValue", "bodyBattery.drainedValue"),
     }
 
 
@@ -475,6 +552,7 @@ def main(argv=None) -> None:
             sync_daily(client, conn, args.since)
         if not args.daily_only and not args.no_details:
             sync_activity_details(client, conn, args.since)
+            sync_laps(client, conn, args.since)
     except KeyboardInterrupt:
         print("\nStopped. Everything fetched so far is saved; run the sync again to resume.")
     except RateLimited as e:
@@ -482,6 +560,11 @@ def main(argv=None) -> None:
     finally:
         conn.commit()
         save_tokens(client)
+        update_trimp(conn)
+        update_features(conn)
+        apply_auto_tags(conn)
+        set_state(conn, "last_sync", datetime.now().strftime("%Y-%m-%d %H:%M"))
+        conn.commit()
         n_act = conn.execute("SELECT count(*) FROM activities").fetchone()[0]
         n_day = conn.execute("SELECT count(*) FROM daily_metrics").fetchone()[0]
         conn.close()

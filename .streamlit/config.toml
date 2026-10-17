@@ -4,9 +4,14 @@ address = "localhost"
 port = 8501
 headless = false
 
+[client]
+# Hide the "Deploy" button: this app must never be published.
+toolbarMode = "viewer"
+
 [browser]
 gatherUsageStats = false
 serverAddress = "localhost"
 
 [theme]
 base = "light"
+primaryColor = "#2a78d6"

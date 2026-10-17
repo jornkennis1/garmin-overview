@@ -3,12 +3,46 @@
 A personal, local-only training dashboard for orienteering, built on my Garmin data.
 It's a free replacement for Shape. Everything runs on this laptop; nothing is hosted anywhere.
 
-- **Sync**: `garmin_sync/` fetches activities and daily metrics from Garmin Connect into `data/garmin.db` (SQLite).
-- **Dashboard**: `app/` is a Streamlit app at http://localhost:8501 *(Phase 3)*.
-- **Data reference**: `DATA.md` describes the tables *(Phase 2)*.
+- **Sync**: `garmin_sync/` fetches activities, laps and daily metrics from Garmin Connect into `data/garmin.db` (SQLite).
+- **Dashboard**: `app/` is a Streamlit app at http://localhost:8501 (only reachable from this laptop).
+- **Data reference**: `DATA.md` describes the tables and views. Claude Code can use it to answer questions about my training.
 
-> **Privacy**: `.env` (credentials), `data/` (database, raw data, exports) and FIT/zip files are git-ignored.
+> **Privacy**: `.env` (credentials), `data/` (database, raw data, exports, backups) and FIT/zip files are git-ignored.
 > Login tokens are stored in `~/.garminconnect` in your home folder, outside this repo.
+> The dashboard has no "Deploy" button and listens on 127.0.0.1 only.
+
+---
+
+## Daily use
+
+The quickest way to sync and open the dashboard in one step:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\sync_and_open.ps1          # sync, then open the dashboard
+powershell -ExecutionPolicy Bypass -File .\sync_and_open.ps1 -NoSync  # only open the dashboard
+```
+
+Or step by step:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m garmin_sync.sync
+streamlit run app/Overview.py
+```
+
+Your browser opens http://localhost:8501. Stop the dashboard with **Ctrl+C** in the terminal.
+While the dashboard is open, the **Sync now** button in the sidebar fetches new data too.
+
+| Page | What it shows |
+|---|---|
+| **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share), weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
+| **Calendar** | Month grid coloured by tag or by load, with weekly totals. Click an activity for details. |
+| **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
+| **Recovery** | Resting HR, HRV (with Garmin's balanced range), sleep, body battery and stress with 7-day averages, plus load for context |
+| **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag editor, optional map |
+| **Tags** | Filterable table to tag many activities at once, sortable by "orienteering-likeness" |
+
+The tag filter in the sidebar applies to every page.
 
 ---
 
@@ -40,15 +74,12 @@ All commands are for **PowerShell**, run from the project folder (`C:\Users\jorn
    If your account has two-step verification (MFA), Garmin emails or texts you a code; type it in when asked.
    Login tokens are then cached in `~/.garminconnect`. Later runs reuse them and refresh them automatically, so you won't have to log in again until they expire (typically months).
 
-4. **First sync**. Try a small window first:
+4. **First sync**. Try a small window first, then fetch your full history:
    ```powershell
    python -m garmin_sync.sync --since 2026-09-01
-   ```
-   Then fetch your full history (this can take an hour or more because of Garmin's rate limits):
-   ```powershell
    python -m garmin_sync.sync
    ```
-   You can stop it at any time with **Ctrl+C**. Everything fetched so far is kept, and the next run continues where it left off.
+   The full history can take a few hours because of Garmin's rate limits. You can stop it at any time with **Ctrl+C**. Everything fetched so far is kept, and the next run continues where it left off.
 
 5. **Put the code in a private GitHub repo** (optional):
    ```powershell
@@ -63,32 +94,106 @@ All commands are for **PowerShell**, run from the project folder (`C:\Users\jorn
 
 ---
 
-## Daily use
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m garmin_sync.sync
-```
-
-Sync options:
+## Sync details
 
 | Option | What it does |
 |---|---|
 | `--since YYYY-MM-DD` | Only fetch data on or after this date |
-| `--no-details` | Skip the per-activity HR zones and HR/pace stream (much faster) |
+| `--no-details` | Skip per-activity HR zones, HR/pace stream and laps (much faster) |
 | `--activities-only` / `--daily-only` | Sync only one part |
 
-### What gets synced
-
-- **Activities**: type, date, duration, distance, elevation, average/max HR, training effect and Garmin training load. Per activity also time in HR zones and the HR/pace/elevation stream.
+What gets synced:
+- **Activities**: type, date, duration, distance, elevation, average/max HR, training effect and Garmin training load. Per activity also time in HR zones, the HR/pace/elevation stream (~2000 points) and **laps**. Laps aren't fetched for gym, mobility and similar sessions.
 - **Daily metrics**: resting HR, HRV, sleep (duration, stages, score), body battery, stress and steps.
 - **Training status**: status, acute/chronic load, VO2max and training readiness. Only for the last 365 days, because Garmin offers it per day only.
+
+After each sync, TRIMP, the tagging features and the automatic tags are updated.
+
+---
+
+## Tags
+
+Every activity gets one tag: **orienteering race, orienteering training, interval, long run, easy run, strength, cycling, hiking/walking** or **other**.
+Tags you set yourself (Tags page or Activity page) are never overwritten. Everything else gets an automatic suggestion after each sync:
+
+| Tag | Automatic rule |
+|---|---|
+| Orienteering race | A run with Garmin event type "race", or a race keyword in the name (WOC, EOC, World Cup, O-Ringen, ...) |
+| Orienteering training | An orienteering keyword in the name, **or** the orienteering model's score is at least 60% (see below) |
+| Interval | Track run; interval words in the name; laps marked as interval/recovery by Garmin (structured workouts); **or** a run of 12 km or more with at least 6 laps of uneven length that alternate fast/slow. Regular 1 km auto-laps don't count. |
+| Long run | A run of 15 km or more |
+| Easy run | Any other run |
+| Strength / Cycling / Hiking-walking | By Garmin activity type |
+| Other | Everything else |
+
+All thresholds and keyword lists are in `config.py`. After editing them, re-apply with `python -m garmin_sync.tagging`.
+
+### Teaching it to recognise orienteering
+
+Garmin names your runs "<City> Hardlopen", so orienteering has to be recognised from the GPS track.
+The signals are sharp direction changes per km, time spent stopped (map reading), how uneven the speed is, and climb per km.
+
+1. Open the **Tags** page, choose sort **"Most orienteering-like first"**, and widen the date range.
+2. Tag at least **8 orienteering sessions** (training or race) **and 8 normal runs** (easy, long or interval) by hand, then **Save changes**. More examples give better results; 20+ of each is ideal.
+3. Open **"Orienteering detection"** at the top of the page and click **Retrain & re-apply auto tags**.
+   It shows how well the model does (cross-validated accuracy) and then auto-tags runs that score 60% or more as orienteering training.
+4. Check the suggestions (filter "Current tag" = Orienteering training, "Only auto"), correct any mistakes, and retrain. Corrections become new training examples.
+
+The model also retrains automatically after every sync. From the terminal: `python -m garmin_sync.features`.
+
+### Laps
+
+The **Activity** page shows laps as bars: bar width = lap duration, height = average HR (or pace/speed), colour = HR zone. A table below lists every lap.
+Lap boundaries are also drawn as dotted lines on the HR/pace chart.
+If you press lap at controls during orienteering, this works as a split analysis.
+
+---
+
+## Heart rate settings
+
+TRIMP, a heart-rate-based load, is computed for every activity as a second load measure and as the fallback for FIT imports.
+It uses HRmax (the highest max HR seen, excluding gym sessions) and your median resting HR.
+To override them, set `HR_MAX` / `HR_REST` in `config.py`, then run `python -m garmin_sync.metrics`.
+Zones come from Garmin (your custom zones as set in Garmin Connect).
+
+---
+
+## Asking Claude about your training
+
+Open Claude Code in this folder and ask questions in plain language, for example:
+- "How many hours of orienteering did I do per month this year, compared with last year?"
+- "What was my easy/hard split in the 6 weeks before my last race?"
+- "Is my resting HR higher the day after sessions with a load above 150?"
+- "Which weeks had the biggest jump in volume, and how did my HRV respond?"
+
+Claude reads the database directly, guided by `DATA.md` and `CLAUDE.md`, and only reads. It never needs your credentials.
+
+---
+
+## Fallback: import FIT files / a Garmin data export
+
+Use this if the Garmin API stops working, or to add older activities.
+
+1. Request your data at https://www.garmin.com/account/datamanagement/exportdata. Garmin emails you a zip, usually within a few hours to days.
+2. Save the zip in `data/exports/` (git-ignored) and run:
+   ```powershell
+   python -m garmin_sync.fit_import data\exports\<your-export>.zip
+   ```
+   This also works with a folder of `.fit` files or a single `.fit` file (e.g. copied from the watch's `GARMIN/Activity` folder over USB).
+
+Activities that already exist (same start within 60 s) are skipped, so it's safe to run more than once. Existing activities without an HR stream or laps get them filled in from the FIT file.
+FIT imports have no Garmin training load; the dashboard then uses TRIMP.
+Daily summaries and sleep from the export's JSON files are imported on a best-effort basis, and only fill days the API hasn't already provided.
 
 ---
 
 ## Troubleshooting
 
-- **"Garmin rejected the login"**: check your password in `.env`. If it's correct, Garmin may have changed its login system (this happens a few times a year). Try `pip install --upgrade garminconnect`. If that doesn't help, use the FIT importer *(Phase 2)*.
+- **"Garmin rejected the login"**: check your password in `.env`. If it's correct, Garmin may have changed its login system (this happens a few times a year). Try `pip install --upgrade garminconnect`. If that doesn't help, use the FIT importer.
+- **"Garmin asks for an MFA code"** (from the Sync now button): the button can't ask for a code. Run `python -m garmin_sync.sync` once in a terminal.
 - **"rate-limiting" / HTTP 429**: Garmin is throttling you. Wait 15–60 minutes and run the sync again; it resumes.
 - **Force a fresh login**: delete the folder `~/.garminconnect` and run `python -m garmin_sync.auth`.
 - **A field is always empty**: not every watch provides every metric (e.g. HRV, training readiness). Each sync keeps the last raw response per endpoint in `data/raw/samples/` (git-ignored), which helps with debugging.
+- **Dashboard shows old data**: click **Sync now**, or reload the page. Data is cached for 5 minutes.
+- **Something went wrong with the database**: `data/garmin.backup-before-phase4.db` is a copy from before the Phase 4 changes. To start over completely, delete `data/garmin.db` and sync again; manual tags are then lost.
+- **Upgrading packages**: versions are pinned in `requirements.txt` so nothing changes unexpectedly. To move to a newer `garminconnect` (e.g. after a Garmin login change), change its version number there, run `pip install -r requirements.txt`, and do a test sync with `--since`.

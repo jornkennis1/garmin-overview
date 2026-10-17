@@ -21,6 +21,8 @@ class LoginError(RuntimeError):
 
 
 def _prompt_mfa() -> str:
+    if not sys.stdin or not sys.stdin.isatty():  # e.g. started from the dashboard's "Sync now" button
+        raise LoginError("Garmin asks for an MFA code. Run `python -m garmin_sync.sync` once in a terminal.")
     return input("Garmin sent you a verification code (MFA). Enter it here: ").strip()
 
 
