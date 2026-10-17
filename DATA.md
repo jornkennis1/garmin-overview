@@ -87,6 +87,9 @@ Many runs use 1 km auto-laps (laps of equal distance), which say nothing about t
 | `bb_high`, `bb_low`, `bb_charged`, `bb_drained` | Body battery |
 | `stress_avg` | Average stress 0–100 |
 | `steps` | |
+| `active_kcal` | Active calories (movement + training, excluding resting/BMR) |
+| `respiration_avg` | Average waking respiration (breaths/min) |
+| `weight_kg` | Latest weigh-in that day; NULL on days without a weigh-in |
 
 ### `training_status`: Garmin training status per day (last ~365 days)
 `date`, `status` (`PRODUCTIVE`, `MAINTAINING`, `RECOVERY`, `UNPRODUCTIVE`, `DETRAINING`, `PEAKING`, `OVERREACHING`, `STRAINED`, ...), `acute_load`, `chronic_load`, `acwr` (acute:chronic ratio), `vo2max`, `readiness_score` (0–100), `readiness_level`.

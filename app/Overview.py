@@ -1,4 +1,4 @@
-"""Overview: this week vs recent weeks, weekly volume and load. Start with `streamlit run app/Overview.py`."""
+"""Overview: this week vs recent weeks, weekly volume and load (part of `streamlit run app/Dashboard.py`)."""
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -71,7 +71,7 @@ for tag, color in c.TAG_COLORS.items():
                     hovertemplate="%{y:.1f} h")
 total = vol.sum(axis=1)
 fig.add_scatter(x=total.index, y=total.rolling(4, min_periods=1).mean(), name="4-week average",
-                mode="lines", line=dict(color="#3b3a37", width=2, dash="dot"), hovertemplate="%{y:.1f} h")
+                mode="lines", line=dict(color=c.AVG_LINE, width=2, dash="dot"), hovertemplate="%{y:.1f} h")
 fig.update_layout(barmode="stack")
 c.show(c.style_fig(fig, height=380, y_title="hours per week"))
 

@@ -27,20 +27,24 @@ Or step by step:
 ```powershell
 .\.venv\Scripts\Activate.ps1
 python -m garmin_sync.sync
-streamlit run app/Overview.py
+streamlit run app/Dashboard.py
 ```
 
-Your browser opens http://localhost:8501. Stop the dashboard with **Ctrl+C** in the terminal.
+Your browser opens http://localhost:8501 on the **Today** page. Stop the dashboard with **Ctrl+C** in the terminal.
 While the dashboard is open, the **Sync now** button in the sidebar fetches new data too.
+
+**Dark mode**: by default the dashboard follows your Windows light/dark setting. To switch manually, use the **⋮ menu** at the top right: **System / Light / Dark**.
 
 | Page | What it shows |
 |---|---|
+| **Today** | Training readiness, fitness/fatigue, last night's sleep, this week per day, sport split, and a health grid (resting HR, HRV, stress, body battery, steps, active calories, VO2 max, weight, respiration). **Click any box** for a one-sentence explanation and a 30-day chart. |
 | **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share), weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
 | **Calendar** | Month grid coloured by tag or by load, with weekly totals. Click an activity for details. |
 | **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
 | **Recovery** | Resting HR, HRV (with Garmin's balanced range), sleep, body battery and stress with 7-day averages, plus load for context |
 | **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag editor, optional map |
 | **Tags** | Filterable table to tag many activities at once, sortable by "orienteering-likeness" |
+| **Settings** | How to switch light/dark, data status (what's synced, from when), where the other settings live |
 
 The tag filter in the sidebar applies to every page.
 
@@ -104,7 +108,7 @@ All commands are for **PowerShell**, run from the project folder (`C:\Users\jorn
 
 What gets synced:
 - **Activities**: type, date, duration, distance, elevation, average/max HR, training effect and Garmin training load. Per activity also time in HR zones, the HR/pace/elevation stream (~2000 points) and **laps**. Laps aren't fetched for gym, mobility and similar sessions.
-- **Daily metrics**: resting HR, HRV, sleep (duration, stages, score), body battery, stress and steps.
+- **Daily metrics**: resting HR, HRV, sleep (duration, stages, score), body battery, stress, steps, active calories, respiration and weight (weigh-ins from a Garmin scale or entered in Garmin Connect).
 - **Training status**: status, acute/chronic load, VO2max and training readiness. Only for the last 365 days, because Garmin offers it per day only.
 
 After each sync, TRIMP, the tagging features and the automatic tags are updated.

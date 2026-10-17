@@ -16,29 +16,60 @@ import streamlit as st  # noqa: E402
 import config  # noqa: E402
 from db.database import connect, get_state  # noqa: E402
 
-# ---------------------------------------------------------------- colours
-# Categorical slots in fixed order (validated for colour-blind separation); one per tag.
-TAG_COLORS = {
-    "o_race": "#2a78d6",
-    "o_training": "#eb6834",
-    "interval": "#1baf7a",
-    "long_run": "#eda100",
-    "easy_run": "#e87ba4",
-    "strength": "#008300",
-    "cycling": "#6250d6",
-    "hiking_walking": "#e34948",
-    "other": "#8a8984",  # neutral fold-in category
+# ---------------------------------------------------------------- colours (light + dark)
+# Categorical slots in fixed order (validated for colour-blind separation in both modes); one per tag.
+# HR zones / load are ordered magnitudes, so they use one hue: light->dark on a light surface,
+# dim->bright on a dark surface. Each mode has its own validated steps, not an automatic flip.
+THEMES = {
+    "light": {
+        "TAG_COLORS": {"o_race": "#2a78d6", "o_training": "#eb6834", "interval": "#1baf7a", "long_run": "#eda100",
+                       "easy_run": "#e87ba4", "strength": "#008300", "cycling": "#6250d6",
+                       "hiking_walking": "#e34948", "other": "#8a8984"},
+        "ZONE_COLORS": ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"],
+        "ZONE3_COLORS": {"easy": "#86b6ef", "moderate": "#2a78d6", "hard": "#104281"},
+        "LOAD_RAMP": ["#cde2fb", "#9ec5f4", "#5598e7", "#256abf", "#104281"],
+        "SERIES_MAIN": "#2a78d6", "SERIES_SECOND": "#eb6834", "SERIES_SOFT": "#9ec5f4", "SERIES_SOFTER": "#cde2fb",
+        "BAND_FILL": "rgba(42,120,214,0.10)", "HR_LINE": "#e34948", "ELEV_LINE": "#6b6a65",
+        "ELEV_FILL": "rgba(107,106,101,0.12)", "LAP_LINE": "#b5b4ae", "AVG_LINE": "#3b3a37",
+        "MUTED": "#a3a29c", "SURFACE": "#ffffff", "TEXT": "#1f1e1c", "TEXT_MUTED": "#6b6a65",
+        "GRID": "#eeede9", "AXIS": "#d6d5d0", "CELL_BG": "#f7f7f5", "CHIP_BG": "#ffffff", "WEEK_BG": "#eef3fb",
+        "BOX_HOVER": "#f4f3f0",
+    },
+    "dark": {
+        "TAG_COLORS": {"o_race": "#3987e5", "o_training": "#d95926", "interval": "#199e70", "long_run": "#c98500",
+                       "easy_run": "#d55181", "strength": "#008300", "cycling": "#9085e9",
+                       "hiking_walking": "#e66767", "other": "#8a8984"},
+        "ZONE_COLORS": ["#184f95", "#256abf", "#3987e5", "#6da7ec", "#9ec5f4"],
+        "ZONE3_COLORS": {"easy": "#256abf", "moderate": "#5598e7", "hard": "#9ec5f4"},
+        "LOAD_RAMP": ["#104281", "#1c5cab", "#3987e5", "#6da7ec", "#b7d3f6"],
+        "SERIES_MAIN": "#3987e5", "SERIES_SECOND": "#d95926", "SERIES_SOFT": "#256abf", "SERIES_SOFTER": "#184f95",
+        "BAND_FILL": "rgba(57,135,229,0.16)", "HR_LINE": "#e66767", "ELEV_LINE": "#a3a29c",
+        "ELEV_FILL": "rgba(163,162,156,0.15)", "LAP_LINE": "#5c5b57", "AVG_LINE": "#d6d5d0",
+        "MUTED": "#76756f", "SURFACE": "#1a1a19", "TEXT": "#f0efec", "TEXT_MUTED": "#a8a79f",
+        "GRID": "#2e2e2c", "AXIS": "#45443f", "CELL_BG": "#232321", "CHIP_BG": "#2c2c2a", "WEEK_BG": "#1d2a3b",
+        "BOX_HOVER": "#262624",
+    },
 }
-# HR zones are ordered intensity, so they share one hue, light -> dark.
-ZONE_COLORS = ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"]
-ZONE3_COLORS = {"easy": "#86b6ef", "moderate": "#2a78d6", "hard": "#104281"}
 ZONE3_LABELS = {"easy": "Easy (Z1–2)", "moderate": "Moderate (Z3)", "hard": "Hard (Z4–5)"}
-LOAD_RAMP = ["#cde2fb", "#9ec5f4", "#5598e7", "#256abf", "#104281"]  # calendar intensity
 LOAD_BUCKETS = [0, 50, 100, 175, 275]  # lower bounds per ramp step (activity load)
-SERIES_MAIN = "#2a78d6"
-SERIES_SECOND = "#eb6834"
-MUTED = "#a3a29c"
-SURFACE = "#ffffff"
+
+
+def is_dark() -> bool:
+    try:
+        return st.context.theme.type == "dark"
+    except Exception:
+        return False
+
+
+def apply_theme() -> None:
+    """Expose the current theme's colours as module constants (c.TAG_COLORS etc.).
+
+    Single-user local app, so module globals are fine; they are set at the start of every page run.
+    """
+    globals().update(THEMES["dark" if is_dark() else "light"])
+
+
+apply_theme()
 
 TAG_LABELS = config.TAGS
 
@@ -127,6 +158,7 @@ def clear_cache() -> None:
 
 def setup_page(title: str, icon: str = "🧭") -> None:
     st.set_page_config(page_title=f"{title} · Training", page_icon=icon, layout="wide")
+    apply_theme()
     st.title(title)
 
 
@@ -197,10 +229,10 @@ def require_data(df: pd.DataFrame, what: str = "activities") -> None:
 def style_fig(fig: go.Figure, height: int = 340, y_title: str | None = None, legend: bool = True) -> go.Figure:
     """Consistent, quiet chart styling: recessive grid, legend on top, thin marks, unified hover."""
     fig.update_layout(
-        template="plotly_white",
+        template="plotly_dark" if is_dark() else "plotly_white",
         height=height,
         margin=dict(l=10, r=10, t=30, b=10),
-        font=dict(size=13, color="#3b3a37"),
+        font=dict(size=13, color=TEXT),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, title_text=""),
         showlegend=legend,
         hovermode="x unified",
@@ -209,8 +241,8 @@ def style_fig(fig: go.Figure, height: int = 340, y_title: str | None = None, leg
         plot_bgcolor=SURFACE,
         paper_bgcolor=SURFACE,
     )
-    fig.update_xaxes(showgrid=False, linecolor="#d6d5d0", ticks="outside", tickcolor="#d6d5d0")
-    fig.update_yaxes(gridcolor="#eeede9", zeroline=False, title_text=y_title)
+    fig.update_xaxes(showgrid=False, linecolor=AXIS, ticks="outside", tickcolor=AXIS)
+    fig.update_yaxes(gridcolor=GRID, zeroline=False, title_text=y_title)
     # 2px surface gap between stacked/adjacent bar segments.
     fig.update_traces(marker_line_color=SURFACE, marker_line_width=1, selector=dict(type="bar"))
     return fig

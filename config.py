@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
 
 DATA_DIR = ROOT / "data"
-DB_PATH = DATA_DIR / "garmin.db"
+DB_PATH = Path(os.getenv("GARMIN_DB_PATH") or DATA_DIR / "garmin.db")  # override only for testing
 SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
 # Login tokens live outside the repo so they can never be committed.

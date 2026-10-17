@@ -13,5 +13,17 @@ gatherUsageStats = false
 serverAddress = "localhost"
 
 [theme]
-base = "light"
+# Light and dark variants: the app follows your system setting by default;
+# switch manually via the menu (top right): System / Light / Dark.
+
+[theme.light]
 primaryColor = "#2a78d6"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f3f0"
+textColor = "#1f1e1c"
+
+[theme.dark]
+primaryColor = "#3987e5"
+backgroundColor = "#1a1a19"
+secondaryBackgroundColor = "#262624"
+textColor = "#f0efec"

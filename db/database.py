@@ -43,6 +43,12 @@ MIGRATIONS: list[str] = [
     """,
     # 2: lap bookkeeping
     "ALTER TABLE activities ADD COLUMN laps_fetched INTEGER NOT NULL DEFAULT 0;",
+    # 3: extra daily health metrics for the Today page
+    """
+    ALTER TABLE daily_metrics ADD COLUMN active_kcal REAL;
+    ALTER TABLE daily_metrics ADD COLUMN respiration_avg REAL;
+    ALTER TABLE daily_metrics ADD COLUMN weight_kg REAL;
+    """,
 ]
 
 

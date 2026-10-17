@@ -342,6 +342,8 @@ def parse_user_summary(s: dict) -> dict:
         "bb_low": first(s, "bodyBatteryLowestValue", "bodyBattery.minValue"),
         "bb_charged": first(s, "bodyBatteryChargedValue", "bodyBattery.chargedValue"),
         "bb_drained": first(s, "bodyBatteryDrainedValue", "bodyBattery.drainedValue"),
+        "active_kcal": first(s, "activeKilocalories", "calories.burnedActive"),
+        "respiration_avg": non_negative(first(s, "avgWakingRespirationValue", "respiration.avgValue")),
     }
 
 
@@ -392,7 +394,7 @@ def fetch_day(client, conn, d: date, with_status: bool = True) -> bool:
     row.update(parse_sleep(call(client.get_sleep_data, ds, sample="sleep_day", optional=True) or {}))
     row.update(parse_hrv_summary(first(call(client.get_hrv_data, ds, sample="hrv_day", optional=True), "hrvSummary") or {}))
     row = compact(row)
-    if row.get("steps") == 0 and len(row) == 1:
+    if not any(v not in (0, None) for v in row.values()):  # only zeros = no data that day
         row = {}
     if row:
         upsert(conn, "daily_metrics", {"date": ds, **row}, "date")
@@ -454,7 +456,7 @@ def fetch_range(client, conn, start: date, end: date) -> int:
     found = 0
     for day, row in by_day.items():
         row = compact(row)
-        if not row or (row.get("steps") in (0, None) and len(row) <= 1):
+        if not any(v not in (0, None) for v in row.values()):  # only zeros = no data that day
             continue
         upsert(conn, "daily_metrics", {"date": day, **row}, "date")
         found += 1
@@ -462,9 +464,50 @@ def fetch_range(client, conn, start: date, end: date) -> int:
     return found
 
 
+def sync_weight(client, conn, since: str | None) -> None:
+    """Weigh-ins (Garmin Index scale or manual entries) into daily_metrics.weight_kg, in yearly chunks."""
+    today = date.today()
+    cursor = get_state(conn, "weight_synced_until")
+    if cursor:
+        start = date.fromisoformat(cursor) - timedelta(days=7)
+    else:
+        first_day = conn.execute("SELECT min(date(start_time_local)) FROM activities").fetchone()[0]
+        start = date.fromisoformat(first_day) if first_day else today - timedelta(days=365)
+    if since:
+        start = max(start, date.fromisoformat(since))
+    n = 0
+    while start <= today:
+        end = min(start + timedelta(days=364), today)
+        data = call(client.get_body_composition, start.isoformat(), end.isoformat(),
+                    sample="body_composition", optional=True) or {}
+        for w in _rows(data, "dateWeightList"):
+            day = first(w, "calendarDate")
+            grams = first(w, "weight")
+            if isinstance(day, str) and isinstance(grams, (int, float)) and grams > 0:
+                kg = grams / 1000 if grams > 1000 else grams
+                upsert(conn, "daily_metrics", {"date": day[:10], "weight_kg": round(kg, 2)}, "date")
+                n += 1
+        conn.commit()
+        start = end + timedelta(days=1)
+    if not since:
+        set_state(conn, "weight_synced_until", today.isoformat())
+        conn.commit()
+    if n:
+        print(f"Weight: {n} weigh-ins stored.", flush=True)
+
+
 def sync_daily(client, conn, since: str | None) -> None:
     today = date.today()
     floor = date.fromisoformat(since) if since else None
+
+    # One-time: re-walk the history once so newly added daily fields (active calories,
+    # respiration) are filled for past days too.
+    if get_state(conn, "daily_fields_version") != "2" and not since:
+        print("Daily metrics: refilling history once for new fields (active calories, respiration) ...", flush=True)
+        set_state(conn, "daily_backfill_done", "0")
+        set_state(conn, "daily_backfill_cursor", today.isoformat())
+        set_state(conn, "daily_fields_version", "2")
+        conn.commit()
 
     # 1. Recent days: detailed per-day endpoints (incl. training status/readiness).
     last = conn.execute("SELECT max(date) AS d FROM daily_metrics").fetchone()["d"]
@@ -550,6 +593,7 @@ def main(argv=None) -> None:
             sync_activities(client, conn, args.since)
         if not args.activities_only:
             sync_daily(client, conn, args.since)
+            sync_weight(client, conn, args.since)
         if not args.daily_only and not args.no_details:
             sync_activity_details(client, conn, args.since)
             sync_laps(client, conn, args.since)

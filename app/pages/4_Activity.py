@@ -122,11 +122,11 @@ else:
             for z, (lo, hi) in enumerate(zip(lows, highs)):
                 fig.add_hrect(y0=lo, y1=hi, fillcolor=c.ZONE_COLORS[z], opacity=0.12, line_width=0, row=i, col=1)
         hover = {"hr": "%{y:.0f} bpm", "pace_val": pace_hover, "altitude_m": "%{y:.0f} m"}[col]
-        color = {"hr": "#e34948", "pace_val": c.SERIES_MAIN, "altitude_m": "#6b6a65"}[col]
+        color = {"hr": c.HR_LINE, "pace_val": c.SERIES_MAIN, "altitude_m": c.ELEV_LINE}[col]
         fig.add_scatter(x=s["min"], y=s[col], mode="lines", line=dict(width=1.5, color=color), name=title,
                         hovertemplate=hover, showlegend=False, connectgaps=False,
                         fill="tozeroy" if col == "altitude_m" else None,
-                        fillcolor="rgba(107,106,101,0.12)" if col == "altitude_m" else None, row=i, col=1)
+                        fillcolor=c.ELEV_FILL if col == "altitude_m" else None, row=i, col=1)
         if col == "pace_val" and not is_cycling:
             fig.update_yaxes(autorange="reversed", row=i, col=1)
         if col == "altitude_m":
@@ -135,7 +135,7 @@ else:
     fig.update_xaxes(title_text="minutes", row=len(rows), col=1)
     if 1 < len(laps) <= 80 and laps["start_offset_s"].notna().all():
         for off in laps["start_offset_s"].iloc[1:]:  # lap boundaries
-            fig.add_vline(x=off / 60, line_width=1, line_dash="dot", line_color="#b5b4ae")
+            fig.add_vline(x=off / 60, line_width=1, line_dash="dot", line_color=c.LAP_LINE)
     c.style_fig(fig, height=260 * len(rows), legend=False)
     fig.update_annotations(font_size=13, xanchor="left", x=0)
     c.show(fig)
@@ -217,7 +217,7 @@ if not s.empty and s["lat"].notna().any():
     if st.toggle("Show route map", help="Loads map tiles from OpenStreetMap (your route stays local, "
                                           "but the tile server sees which area you view)."):
         pts = s.dropna(subset=["lat", "lon"])
-        fig = go.Figure(go.Scattermap(lat=pts["lat"], lon=pts["lon"], mode="lines", line=dict(width=3, color="#e34948")))
+        fig = go.Figure(go.Scattermap(lat=pts["lat"], lon=pts["lon"], mode="lines", line=dict(width=3, color=c.HR_LINE)))
         fig.update_layout(map=dict(style="open-street-map", center=dict(lat=pts["lat"].mean(), lon=pts["lon"].mean()),
                                    zoom=13), height=450, margin=dict(l=0, r=0, t=0, b=0))
         c.show(fig)

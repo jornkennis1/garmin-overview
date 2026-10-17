@@ -74,13 +74,13 @@ for i, (title, col, color) in enumerate(panels, start=1):
         fig.add_scatter(x=d.index, y=d["hrv_baseline_high"], mode="lines", line=dict(width=0), showlegend=False,
                         hoverinfo="skip", row=i, col=1)
         fig.add_scatter(x=d.index, y=d["hrv_baseline_low"], mode="lines", line=dict(width=0), fill="tonexty",
-                        fillcolor="rgba(42,120,214,0.10)", name="Garmin balanced range", showlegend=False,
+                        fillcolor=c.BAND_FILL, name="Garmin balanced range", showlegend=False,
                         hovertemplate="baseline low %{y:.0f}", row=i, col=1)
     if col == "sleep_h":
-        fig.add_bar(x=d.index, y=d[col], name=title, marker_color="#b7d3f6", showlegend=False,
+        fig.add_bar(x=d.index, y=d[col], name=title, marker_color=c.SERIES_SOFTER, showlegend=False,
                     hovertemplate="%{y:.1f} h", row=i, col=1)
     else:
-        fig.add_scatter(x=d.index, y=d[col], mode="markers", marker=dict(size=6, color="#9ec5f4"),
+        fig.add_scatter(x=d.index, y=d[col], mode="markers", marker=dict(size=6, color=c.SERIES_SOFT),
                         name=f"{title} daily", showlegend=False, hovertemplate="%{y:.0f}", row=i, col=1)
     fig.add_scatter(x=d.index, y=d[f"{col}_7d"], mode="lines", line=dict(color=color, width=2),
                     name=f"{title} 7-day avg", showlegend=False, hovertemplate="7d %{y:.1f}", row=i, col=1)

@@ -20,4 +20,4 @@ if (-not $NoSync) {
 }
 
 Write-Host "Opening dashboard at http://localhost:8501 (press Ctrl+C here to stop it) ..." -ForegroundColor Cyan
-& $python -m streamlit run app/Overview.py
+& $python -m streamlit run app/Dashboard.py

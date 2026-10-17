@@ -41,23 +41,23 @@ grid_end = month_end + pd.Timedelta(days=6 - month_end.weekday())
 in_grid = acts[(acts["day"] >= grid_start) & (acts["day"] <= grid_end)].sort_values("start")
 by_day = {d: g for d, g in in_grid.groupby("day")}
 
-CSS = """
+CSS = f"""
 <style>
-.cal{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;font-size:13px}
-.cal th{color:#6b6a65;font-weight:600;text-align:left;padding:2px 6px}
-.cal td{vertical-align:top;background:#f7f7f5;border-radius:8px;padding:6px;height:110px}
-.cal td.out{opacity:.45}
-.cal td.today{outline:2px solid #2a78d6}
-.cal td.week{background:#eef3fb;width:11%}
-.cal .dn{color:#6b6a65;font-weight:600;margin-bottom:4px}
-.cal a.act{display:block;text-decoration:none;color:#1f1e1c;background:#fff;border-radius:6px;
-  border-left:6px solid var(--c);padding:3px 6px;margin-bottom:4px;line-height:1.25}
-.cal a.act:hover{box-shadow:0 1px 4px rgba(0,0,0,.15)}
-.cal a.act small{color:#6b6a65}
-.cal .wk b{font-size:15px}
-.legend{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 2px;font-size:13px;color:#3b3a37}
-.legend span{display:inline-flex;align-items:center;gap:6px}
-.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;background:var(--c)}
+.cal{{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;font-size:13px;color:{c.TEXT}}}
+.cal th{{color:{c.TEXT_MUTED};font-weight:600;text-align:left;padding:2px 6px}}
+.cal td{{vertical-align:top;background:{c.CELL_BG};border-radius:8px;padding:6px;height:110px}}
+.cal td.out{{opacity:.45}}
+.cal td.today{{outline:2px solid {c.SERIES_MAIN}}}
+.cal td.week{{background:{c.WEEK_BG};width:11%}}
+.cal .dn{{color:{c.TEXT_MUTED};font-weight:600;margin-bottom:4px}}
+.cal a.act{{display:block;text-decoration:none;color:{c.TEXT};background:{c.CHIP_BG};border-radius:6px;
+  border-left:6px solid var(--c);padding:3px 6px;margin-bottom:4px;line-height:1.25}}
+.cal a.act:hover{{box-shadow:0 1px 4px rgba(0,0,0,.25)}}
+.cal a.act small{{color:{c.TEXT_MUTED}}}
+.cal .wk b{{font-size:15px}}
+.legend{{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 2px;font-size:13px;color:{c.TEXT}}}
+.legend span{{display:inline-flex;align-items:center;gap:6px}}
+.legend i{{width:12px;height:12px;border-radius:3px;display:inline-block;background:var(--c)}}
 </style>
 """
 

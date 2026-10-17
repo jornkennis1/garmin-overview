@@ -71,6 +71,9 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
     bb_drained         REAL,
     stress_avg         REAL,                  -- 0-100
     steps              INTEGER,
+    active_kcal        REAL,                  -- active calories (excl. resting/BMR)
+    respiration_avg    REAL,                  -- average waking respiration (breaths/min)
+    weight_kg          REAL,                  -- latest weigh-in that day (only on days you weighed)
     updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
