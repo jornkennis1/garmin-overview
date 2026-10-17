@@ -19,7 +19,9 @@ c.require_data(acts)
 # O score: model probability once trained, else how unusual the GPS track's direction changes are (percentile).
 has_track = acts["turns_per_km"].notna()
 acts["o_score"] = acts["o_prob"] * 100
-acts.loc[has_track & acts["o_prob"].isna(), "o_score"] = acts.loc[has_track, "turns_per_km"].rank(pct=True) * 100
+turn_pct = acts.loc[has_track, "turns_per_km"].rank(pct=True) * 100
+no_model = has_track & acts["o_prob"].isna()
+acts.loc[no_model, "o_score"] = turn_pct[no_model[no_model].index]
 
 conn = connect()
 try:
