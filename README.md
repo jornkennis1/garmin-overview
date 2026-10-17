@@ -162,7 +162,45 @@ Zones come from Garmin (your custom zones as set in Garmin Connect).
 
 ---
 
-## Asking Claude about your training
+## Asking Claude about your training (Claude Desktop app)
+
+`mcp_server.py` is a small local **MCP server** that gives the Claude Desktop app read-only access to your training database.
+After that, a normal Claude conversation can analyse your data. It's a free replacement for Shape's Claude link.
+
+**Setup (one time).** Already done on this laptop. To redo it, add this to Claude Desktop's config file
+(Claude Desktop → Settings → Developer → *Edit Config*):
+
+```json
+{
+  "mcpServers": {
+    "garmin-training": {
+      "command": "C:\\Users\\jornk\\dev\\persoonlijk\\garmin_overview\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\jornk\\dev\\persoonlijk\\garmin_overview\\mcp_server.py"]
+    }
+  }
+}
+```
+
+Then **fully quit** Claude Desktop (system tray icon → Quit, not just close the window) and start it again.
+In a new chat, the tools menu (the sliders/plug icon below the message box) should list **garmin-training**.
+
+**Use it.** Just ask, for example:
+- "Give me an overview of my last 30 days and tell me what I can do better."
+- "How recovered am I? Look at my resting HR, HRV and sleep for the last 2 weeks."
+- "Analyse the laps of my last interval session."
+- "Compare my orienteering volume this autumn with last autumn."
+
+Or pick a ready-made prompt from the **+** menu → garmin-training: **training_review** (coach-style review with advice) or **weekly_checkin**.
+
+Tools Claude can use: `training_summary`, `recovery_summary`, `list_activities`, `get_activity` (incl. laps), `daily_metrics`, `query_database` (read-only SQL) and `data_reference`.
+
+Good to know:
+- The dashboard doesn't need to run, but Claude Desktop does, on this laptop. Claude sees data up to your **last sync**, so sync first for fresh numbers.
+- The server can't change anything: read-only database connection, SELECT-only queries, and no access to `.env` or your Garmin login.
+- The numbers Claude retrieves become part of that conversation, like anything you type.
+- Test without Claude: `.venv\Scripts\python mcp_server.py --selftest`. Problems? Claude Desktop → Settings → Developer shows the server status and its log.
+
+### With Claude Code
 
 Open Claude Code in this folder and ask questions in plain language, for example:
 - "How many hours of orienteering did I do per month this year, compared with last year?"
