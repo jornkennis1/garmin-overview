@@ -1,0 +1,12 @@
+[server]
+# Only reachable from this laptop, never from the local network.
+address = "localhost"
+port = 8501
+headless = false
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[theme]
+base = "light"

@@ -1,0 +1,32 @@
+# --- Secrets: never commit ---
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+garmin_tokens.json
+.garminconnect/
+*token*.json
+
+# --- Personal data: never commit ---
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.fit
+*.FIT
+*.zip
+*.gpx
+*.tcx
+
+# --- Python / tooling ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.vscode/
+.idea/
