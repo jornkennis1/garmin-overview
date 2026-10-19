@@ -99,6 +99,7 @@ While the dashboard is open, the **Sync now** button in the sidebar fetches new 
 |---|---|
 | **Today** | Training readiness, fitness/fatigue, last night's sleep, this week per day, sport split, and a health grid (resting HR, HRV, stress, body battery, steps, active calories, VO2 max, weight, respiration). **Click any box** for a one-sentence explanation and a 30-day chart. |
 | **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share) with a short written summary, weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
+| **Plan** | Race calendar with a countdown and your projected form on race day (your plan vs a suggested taper), weekly plan vs what you actually did, and this season vs earlier seasons |
 | **Insights** | Long-term trends with what they mean (aerobic efficiency in metres per heartbeat, resting HR, VO2 max, compared with a year ago) and personal records |
 | **Calendar** | Month grid coloured by tag or by load, with weekly totals. Click an activity for details. |
 | **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
@@ -189,6 +190,18 @@ These are rules of thumb, not medical advice. If something feels off, trust how 
 
 ---
 
+## Planning: races, weekly plan and seasons
+
+The **Plan** page has three tabs:
+
+- **Races**: add the races you plan to run (date, name, discipline, priority, goal). **A** = main goal, **B** = important, **C** = training race. For each upcoming race you see your projected **form on race morning** (fitness − fatigue): once with your weekly plan and once with a suggested taper. A tapers over 3 weeks (90%, 75%, 55% of your usual volume), B lightly in race week, C not at all. **Put the taper in my weekly plan** fills only empty weeks. Past races show the activity of that day. The **Today** page shows a countdown to your next race.
+- **Weekly plan**: planned hours, sessions, orienteering and hard sessions per week, next to what you actually did. The **Overview** page shows this week's plan.
+- **Season**: cumulative hours (or orienteering hours, load, sessions) this season against earlier seasons at the same point, plus totals per season. If your season doesn't start in January, set `season_start_month` in `settings.toml`.
+
+The projection is a guide: it spreads your planned hours evenly over the week and uses your recent load per hour. Weeks without a plan continue at your usual volume (average of the last 4 weeks).
+
+---
+
 ## Renaming activities
 
 Garmin names most activities "<City> Running", which makes them hard to find. Give them your own name, e.g. *"Middle distance training Zoniënwoud"* or *"BK Long"*:
@@ -211,6 +224,7 @@ Every line is optional; uncomment a line to override the default from `config.py
 | `hr_zone_lower_bounds` | HR zones for FIT imports when Garmin's zones are unknown |
 | `o_race_keywords`, `o_keywords`, `interval_keywords` | Words in activity names that trigger a tag. Add the names you give your own sessions, in your own language. |
 | `long_run_min_km`, `interval_*`, `o_prob_threshold`, ... | Tagging thresholds |
+| `season_start_month` | Month your season starts, for the season comparison on the Plan page (default 1 = January) |
 | `api_delay_s` | Pause between Garmin API calls; raise it if you get rate-limited |
 | `[tags]` | Rename tag labels shown in the dashboard |
 

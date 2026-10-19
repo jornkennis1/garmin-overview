@@ -127,6 +127,26 @@ Course map per orienteering activity, added on the O-analysis page. The image is
 | `dpi` | Resolution of the stored image if known (PDF render), for the map-scale estimate |
 | `map_points`, `track_points` | JSON: 3 matching points, `[[px, py], ...]` on the image and `[[lat, lon], ...]` on the track. The dashboard fits rotation + scale + offset to them. |
 
+### `races`
+Races the user plans to run (Plan page); one row per race, not linked to activities. Find the race activity by date (`v_activities.day = races.date`).
+
+| Column | Meaning |
+|---|---|
+| `date`, `name` | Race date ('YYYY-MM-DD') and name |
+| `discipline` | sprint, middle, long, relay, night, ultralong, other |
+| `priority` | A = main goal, B = important, C = training race |
+| `goal`, `notes` | Free text |
+
+### `week_plans`
+The user's weekly training plan (Plan page). Compare with actuals from `v_activities` grouped by `week_start`.
+
+| Column | Meaning |
+|---|---|
+| `week_start` | Monday ('YYYY-MM-DD') |
+| `hours`, `sessions` | Planned training time and number of sessions |
+| `o_sessions`, `hard_sessions` | Planned orienteering sessions; planned hard sessions (intervals, races, or 10+ min in Z4-5) |
+| `notes` | Free text, e.g. "Taper for BK Middle" |
+
 ### `sync_state`
 Key/value bookkeeping for resumable syncs (backfill cursors and done flags).
 

@@ -6,6 +6,7 @@ import streamlit as st
 
 import common as c
 import insights
+import planning
 from garmin_sync.metrics import load_curves
 
 c.setup_page("Overview")
@@ -58,6 +59,12 @@ if last is not None:
 
 with st.container(border=True):
     st.markdown(insights.week_summary(acts, today))
+    _plan = planning.load_plans()
+    if this_monday in _plan.index and pd.notna(_plan.loc[this_monday, "hours"]):
+        _p = _plan.loc[this_monday]
+        _done = acts_all[acts_all["week_start"] == this_monday]["hours"].sum()
+        st.markdown(f"**Plan this week**: {_p['hours']:.1f} h, {_done:.1f} h done so far"
+                    + (f" · *{_p['notes']}*" if _p["notes"] else "") + ". Edit it on the **Plan** page.")
 
 # ---------------------------------------------------------------- weekly volume by tag
 st.subheader("Weekly volume")

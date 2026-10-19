@@ -141,6 +141,30 @@ CREATE TABLE IF NOT EXISTS o_maps (
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Planned races (Plan page). Not activities: a race is planned before it happens; the activity of the
+-- day is matched by date when it's done.
+CREATE TABLE IF NOT EXISTS races (
+    race_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT NOT NULL,               -- 'YYYY-MM-DD'
+    name         TEXT NOT NULL,
+    discipline   TEXT,                        -- sprint, middle, long, relay, night, ultralong, other
+    priority     TEXT NOT NULL DEFAULT 'B' CHECK (priority IN ('A','B','C')),  -- A = main goal, C = training race
+    goal         TEXT,
+    notes        TEXT,
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Weekly training plan (Plan page); actuals come from v_activities.
+CREATE TABLE IF NOT EXISTS week_plans (
+    week_start     TEXT PRIMARY KEY,          -- Monday, 'YYYY-MM-DD'
+    hours          REAL,
+    sessions       INTEGER,
+    o_sessions     INTEGER,                   -- orienteering sessions (race or training)
+    hard_sessions  INTEGER,                   -- intervals, races or sessions with 10+ min in Z4-5
+    notes          TEXT,
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sync_state (
     key    TEXT PRIMARY KEY,
     value  TEXT

@@ -6,6 +6,7 @@ import streamlit as st
 
 import common as c
 import insights
+import planning
 from garmin_sync.metrics import load_curves
 
 c.setup_page("Today", "☀️")
@@ -16,7 +17,10 @@ acts_all = c.load_activities()
 today = pd.Timestamp.today().normalize()
 this_monday = today - pd.Timedelta(days=today.weekday())
 since30 = today - pd.Timedelta(days=29)
-st.caption(f"{today:%A %d %B %Y}  ·  click a box for a short explanation and the last 30 days")
+_next = planning.load_races().query("date >= @today").head(1)
+_race = (f"  ·  next race: **{_next.iloc[0]['name']}** ({_next.iloc[0]['priority']}) "
+         f"{planning.weeks_to(_next.iloc[0]['date'], today)}") if len(_next) else ""
+st.caption(f"{today:%A %d %B %Y}{_race}  ·  click a box for a short explanation and the last 30 days")
 
 d = daily.set_index("date").sort_index() if not daily.empty else pd.DataFrame()
 if not d.empty:

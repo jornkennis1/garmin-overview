@@ -37,6 +37,10 @@
 # o_model_min_examples = 8
 # o_prob_threshold = 0.6
 
+# ---------------------------------------------------------------- plan
+# Month your season starts (1 = January, 10 = October, ...), for the season comparison.
+# season_start_month = 1
+
 # ---------------------------------------------------------------- sync
 # Pause between Garmin API calls (seconds). Raise it if you get rate-limited (HTTP 429).
 # api_delay_s = 0.6

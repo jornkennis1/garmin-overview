@@ -79,6 +79,9 @@ HIKE_WALK_WORDS = ("hiking", "walking", "mountaineering")
 
 LONG_RUN_MIN_KM = 15
 
+# Month your training season starts (1 = January). Used by the season comparison on the Plan page.
+SEASON_START_MONTH = 1
+
 # Interval detection from laps (besides keywords and laps Garmin marks as interval/recovery):
 # a run of at least INTERVAL_MIN_KM with at least INTERVAL_MIN_LAPS laps of uneven length
 # whose pace alternates between fast and slow.
@@ -118,7 +121,7 @@ _OVERRIDABLE = {
     "O_RACE_KEYWORDS", "O_KEYWORDS", "INTERVAL_KEYWORDS", "LONG_RUN_MIN_KM",
     "INTERVAL_MIN_KM", "INTERVAL_MIN_LAPS", "INTERVAL_LAP_DIST_CV", "INTERVAL_ALTERNATION",
     "INTERVAL_FAST_SLOW_GAP", "O_MODEL_MIN_EXAMPLES", "O_PROB_THRESHOLD", "API_DELAY_S",
-    "TRAINING_STATUS_BACKFILL_DAYS",
+    "TRAINING_STATUS_BACKFILL_DAYS", "SEASON_START_MONTH",
 }
 
 
