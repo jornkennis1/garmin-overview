@@ -63,6 +63,7 @@ m[5].metric("Speed" if is_cycling else "Pace",
 
 # ---------------------------------------------------------------- tag editor
 with st.container(border=True):
+    c.name_editor(a.rename(aid), "act")
     tc = st.columns([3, 1, 1, 3], vertical_alignment="bottom")
     tag_keys = list(c.TAG_LABELS)
     new_tag = tc[0].selectbox("Tag", tag_keys, index=tag_keys.index(a["tag"]) if a["tag"] in tag_keys else 0,

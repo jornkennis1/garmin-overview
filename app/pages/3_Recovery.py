@@ -6,6 +6,7 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 import common as c
+import insights
 
 c.setup_page("Recovery", "😴")
 c.tag_filter_sidebar()
@@ -54,6 +55,8 @@ if not status.empty:
     acwr = f"ACWR {t['acwr']:.1f}" if pd.notna(t["acwr"]) else None
     m[4].metric("Training status", str(t["status"]).replace("_", " ").capitalize(), acwr, delta_color="off", border=True,
                 help="Garmin training status; ACWR = acute:chronic workload ratio (0.8–1.5 is Garmin's optimal range).")
+
+insights.render(insights.recovery_trends(daily, today))
 
 # ---------------------------------------------------------------- trend charts (small multiples, shared time axis)
 panels = [

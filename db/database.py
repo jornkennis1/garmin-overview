@@ -49,6 +49,8 @@ MIGRATIONS: list[str] = [
     ALTER TABLE daily_metrics ADD COLUMN respiration_avg REAL;
     ALTER TABLE daily_metrics ADD COLUMN weight_kg REAL;
     """,
+    # 4: your own activity names (sync only writes `name`)
+    "ALTER TABLE activities ADD COLUMN custom_name TEXT;",
 ]
 
 

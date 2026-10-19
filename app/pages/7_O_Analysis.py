@@ -8,6 +8,7 @@ import streamlit as st
 from streamlit_image_coordinates import streamlit_image_coordinates
 
 import common as c
+import insights
 import o_maps as om
 
 c.setup_page("O-analysis", "🧭")
@@ -43,6 +44,8 @@ k[0].metric("Sessions", len(o), border=True)
 k[1].metric("Hours", f"{o['hours'].sum():.1f}", border=True)
 k[2].metric("Races", int((o["tag"] == "o_race").sum()), border=True)
 k[3].metric("Maps added", int(o["activity_id"].isin(with_map).sum()), border=True)
+
+insights.render(insights.orienteering(o_all, acts_all, pd.Timestamp.today().normalize()))
 
 monthly = (o.assign(month=o["start"].dt.to_period("M").dt.to_timestamp())
            .groupby(["month", "tag"], as_index=False)["hours"].sum())
@@ -100,6 +103,8 @@ m[2].metric("Load", "–" if pd.isna(a["load"]) else f"{a['load']:.0f}", border=
 m[3].metric("Climb", "–" if pd.isna(a["elev_gain_m"]) else f"{a['elev_gain_m']:.0f} m", border=True)
 m[4].metric("Stopped", c.fmt_duration(a["stop_frac"] * a["duration_s"]) if pd.notna(a["stop_frac"]) else "–",
             border=True, help="Time slower than 1 m/s: map reading, control punching, hesitation.")
+with st.expander("Rename this session", icon=":material/edit:"):
+    c.name_editor(a.rename(aid), "o")
 st.markdown(f"[Open HR, laps and zones on the Activity page](/Activity?id={aid})")
 
 samples = c.load_samples(aid)

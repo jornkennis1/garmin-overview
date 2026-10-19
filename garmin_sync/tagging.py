@@ -67,7 +67,8 @@ def suggest_tag(a: dict) -> str:
 def apply_auto_tags(conn: sqlite3.Connection) -> int:
     """(Re)compute auto tags for all activities without a manual tag. Returns rows changed."""
     rows = conn.execute(
-        """SELECT a.activity_id, a.sport_type, a.event_type, a.name, a.duration_s, a.distance_m,
+        """SELECT a.activity_id, a.sport_type, a.event_type, COALESCE(NULLIF(a.custom_name, ''), a.name) AS name,
+                  a.duration_s, a.distance_m,
                   f.n_laps, f.lap_dist_cv, f.lap_alternation, f.lap_fast_slow_gap, f.has_interval_laps, f.o_prob,
                   t.tag
            FROM activities a
@@ -99,6 +100,16 @@ def set_manual_tag(conn: sqlite3.Connection, activity_id: int, tag: str) -> None
         (activity_id, tag),
     )
     conn.commit()
+
+
+def set_custom_name(conn: sqlite3.Connection, activity_id: int, name: str | None) -> None:
+    """Give an activity your own name (None or empty = back to Garmin's name).
+
+    Names feed the keyword rules, so auto tags are re-applied (manual tags are never touched).
+    """
+    name = (name or "").strip() or None
+    conn.execute("UPDATE activities SET custom_name = ? WHERE activity_id = ?", (name, activity_id))
+    apply_auto_tags(conn)
 
 
 def reset_to_auto(conn: sqlite3.Connection, activity_id: int) -> None:

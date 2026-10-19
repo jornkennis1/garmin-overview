@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import common as c
+import insights
 
 c.setup_page("Intensity", "❤️")
 tags = c.tag_filter_sidebar()
@@ -78,6 +79,9 @@ with right:
         st.markdown(verdict)
         st.caption(f"Based on {total / 3600:.1f} h of heart-rate zone time in {len(period)} sessions. "
                    "Time below Zone 1 is not counted.")
+
+previous = acts[(acts["week_start"] >= since - pd.Timedelta(days=days)) & (acts["week_start"] < since)]
+insights.render(insights.intensity(period, previous))
 
 # ---------------------------------------------------------------- by tag
 st.subheader("Zone split per tag")

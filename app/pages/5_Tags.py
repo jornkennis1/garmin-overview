@@ -9,7 +9,7 @@ import common as c
 import config
 from db.database import connect, get_state
 from garmin_sync.features import update_features
-from garmin_sync.tagging import apply_auto_tags, set_manual_tag
+from garmin_sync.tagging import apply_auto_tags, set_custom_name, set_manual_tag
 
 c.setup_page("Tags", "🏷️")
 c.tag_filter_sidebar()
@@ -82,8 +82,9 @@ if sort != "Newest first":
 label_to_key = {v: k for k, v in c.TAG_LABELS.items()}
 table = pd.DataFrame({
     "activity_id": view["activity_id"],
+    "garmin_name": view["garmin_name"].fillna(""),
     "Date": view["start"].dt.strftime("%Y-%m-%d %H:%M"),
-    "Name": view["name"],
+    "Name": view["name"].fillna(""),
     "Sport": view["sport_type"].map(c.sport_label),
     "Time": view["duration_s"].map(c.fmt_duration),
     "Avg HR": view["avg_hr"].round(0),
@@ -99,13 +100,16 @@ table = pd.DataFrame({
 
 # The editor tracks edits by row position, so give each filter/sort combination its own editor state.
 editor_key = f"tag_editor_{hash(tuple(table['activity_id']))}"
-st.caption(f"{len(table)} activities. Change the **Tag** column, then press **Save changes**.")
+st.caption(f"{len(table)} activities. Change the **Tag** or **Name** column, then press **Save changes**. "
+           "Clear a name to go back to Garmin's name.")
 edited = st.data_editor(
     table,
     hide_index=True,
-    disabled=[col for col in table.columns if col != "Tag"],
-    column_order=[col for col in table.columns if col != "activity_id"],
+    disabled=[col for col in table.columns if col not in ("Tag", "Name")],
+    column_order=[col for col in table.columns if col not in ("activity_id", "garmin_name")],
     column_config={
+        "Name": st.column_config.TextColumn("Name", max_chars=120,
+                                            help="Your own name for the activity (Garmin's name stays as fallback)."),
         "Tag": st.column_config.SelectboxColumn("Tag", options=list(c.TAG_LABELS.values()), required=True),
         "O score": st.column_config.ProgressColumn("O score", min_value=0, max_value=100, format="%.0f",
                                                    help="How orienteering-like the GPS track is (0–100)."),
@@ -114,18 +118,23 @@ edited = st.data_editor(
     height=min(700, 38 + 35 * max(1, len(table))),
 )
 
-changed = edited[edited["Tag"] != table["Tag"]]
+tag_changed = edited[edited["Tag"] != table["Tag"]]
+name_changed = edited[edited["Name"].fillna("").str.strip() != table["Name"]]
+n_changes = len(tag_changed) + len(name_changed)
 cols = st.columns([1, 4])
-if cols[0].button(f"Save changes ({len(changed)})", type="primary", disabled=changed.empty):
+if cols[0].button(f"Save changes ({n_changes})", type="primary", disabled=n_changes == 0):
     conn = connect()
     try:
-        for _, row in changed.iterrows():
+        for _, row in name_changed.iterrows():  # names first: they can change auto tags
+            new = (row["Name"] or "").strip()
+            set_custom_name(conn, int(row["activity_id"]), None if new in ("", row["garmin_name"]) else new)
+        for _, row in tag_changed.iterrows():
             set_manual_tag(conn, int(row["activity_id"]), label_to_key[row["Tag"]])
     finally:
         conn.close()
     c.clear_cache()
     st.session_state.pop(editor_key, None)
-    st.toast(f"Saved {len(changed)} tag(s).")
+    st.toast(f"Saved {len(name_changed)} name(s) and {len(tag_changed)} tag(s).")
     st.rerun()
 
 # ---------------------------------------------------------------- summary

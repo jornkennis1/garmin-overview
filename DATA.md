@@ -31,7 +31,8 @@ Query from the project folder:
 |---|---|
 | `activity_id` | Garmin activity id (PK). FIT imports without a known id use a negative synthetic id. |
 | `start_time_local`, `start_time_utc` | Start time |
-| `name` | Activity name. Often Garmin's default, e.g. `"<City> Running"` (in the watch's language); not reliable for classifying. |
+| `name` | Activity name from Garmin, overwritten by every sync. Often Garmin's default, e.g. `"<City> Running"` (in the watch's language); not reliable for classifying. |
+| `custom_name` | The user's own name, set in the dashboard (NULL = none). Sync never touches it. |
 | `sport_type` | Garmin typeKey: `running`, `trail_running`, `road_biking`, `hiking`, `walking`, `strength_training`, `indoor_cardio`, `mobility`, ... |
 | `event_type` | Garmin event type: `race`, `training`, `uncategorized`, ... |
 | `duration_s` | Elapsed time incl. pauses |
@@ -134,8 +135,8 @@ Key/value bookkeeping for resumable syncs (backfill cursors and done flags).
 ## Views (use these first)
 
 ### `v_activities`
-`activities` + tag + zones flattened: `activity_id, start_time_local, day, week_start, name, sport_type, event_type, tag, tag_source, duration_s, moving_s, hours, distance_m, elev_gain_m, avg_hr, max_hr, aerobic_te, anaerobic_te, training_load, trimp, load, z1_s..z5_s, easy_s, moderate_s, hard_s, source`.
-`load` = Garmin `training_load` if present, else `trimp`. Also includes `n_laps, turns_per_km, stop_frac, o_prob` from `activity_features`.
+`activities` + tag + zones flattened: `activity_id, start_time_local, day, week_start, name, garmin_name, sport_type, event_type, tag, tag_source, duration_s, moving_s, hours, distance_m, elev_gain_m, avg_hr, max_hr, aerobic_te, anaerobic_te, training_load, trimp, load, z1_s..z5_s, easy_s, moderate_s, hard_s, source`.
+`name` = the user's own name if set, else Garmin's (`garmin_name` is always Garmin's). `load` = Garmin `training_load` if present, else `trimp`. Also includes `n_laps, turns_per_km, stop_frac, o_prob` from `activity_features`.
 
 ### `v_weekly`
 Per `week_start`: `sessions, hours, load, distance_km, elev_gain_m, z1_h..z5_h, easy_h, moderate_h, hard_h`.

@@ -214,6 +214,39 @@ def _sync_sidebar() -> None:
     st.sidebar.caption(f"Last sync: {last or 'never'}")
 
 
+def name_editor(a: pd.Series, key: str) -> None:
+    """Rename an activity (stored locally; Garmin's own name stays untouched and is kept as fallback)."""
+    from garmin_sync.tagging import set_custom_name
+
+    aid = int(a["activity_id"]) if "activity_id" in a else int(a.name)
+    garmin = a["garmin_name"] or ""
+    custom = a["name"] if a["name"] != garmin else ""
+    cols = st.columns([4, 1, 1], vertical_alignment="bottom")
+    new = cols[0].text_input("Name", value=custom or garmin, key=f"{key}_name_{aid}", max_chars=120,
+                             placeholder=garmin or "Activity name",
+                             help="Your own name, e.g. 'Middle distance training Zoniënwoud' or 'BK Long'. Stored only "
+                                  "here (Garmin keeps its name) and used by the auto-tag keywords.")
+    if cols[1].button("Save name", key=f"{key}_savename_{aid}", disabled=new.strip() in ("", custom or garmin)):
+        conn = connect()
+        try:
+            set_custom_name(conn, aid, None if new.strip() == garmin else new)
+        finally:
+            conn.close()
+        clear_cache()
+        st.toast("Name saved")
+        st.rerun()
+    if cols[2].button("Garmin name", key=f"{key}_resetname_{aid}", disabled=not custom,
+                      help=f"Back to Garmin's name: {garmin or '(none)'}"):
+        conn = connect()
+        try:
+            set_custom_name(conn, aid, None)
+        finally:
+            conn.close()
+        clear_cache()
+        st.session_state.pop(f"{key}_name_{aid}", None)
+        st.rerun()
+
+
 def filter_tags(df: pd.DataFrame, tags: list[str]) -> pd.DataFrame:
     return df[df["tag"].isin(tags)]
 

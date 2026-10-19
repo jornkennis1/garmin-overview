@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import common as c
+import insights
 from garmin_sync.metrics import load_curves
 
 c.setup_page("Overview")
@@ -54,6 +55,9 @@ if last is not None:
         f"4-week average: {c.fmt_hours(prev4['hours'].mean())}, {prev4['sessions'].mean():.1f} sessions, "
         f"load {prev4['load'].mean():.0f}."
     )
+
+with st.container(border=True):
+    st.markdown(insights.week_summary(acts, today))
 
 # ---------------------------------------------------------------- weekly volume by tag
 st.subheader("Weekly volume")

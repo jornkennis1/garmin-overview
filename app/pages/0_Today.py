@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import common as c
+import insights
 from garmin_sync.metrics import load_curves
 
 c.setup_page("Today", "☀️")
@@ -22,6 +23,14 @@ if not d.empty:
     d = d[~d.index.duplicated(keep="last")]
     d["sleep_h"] = d["sleep_s"] / 3600
 acts = c.filter_tags(acts_all, tags)
+
+# ---------------------------------------------------------------- heads-up (all activities, ignores the tag filter)
+with st.expander("Heads-up", expanded=True, icon=":material/notifications:"):
+    items = insights.readiness(acts_all, daily, today)
+    if items:
+        insights.render(items)
+    else:
+        st.caption("Not enough recent data for a check yet.")
 
 # Every box is a bordered container with an invisible full-size button on top (see CSS below).
 st.html(f"""<style>

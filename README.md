@@ -98,7 +98,8 @@ While the dashboard is open, the **Sync now** button in the sidebar fetches new 
 | Page | What it shows |
 |---|---|
 | **Today** | Training readiness, fitness/fatigue, last night's sleep, this week per day, sport split, and a health grid (resting HR, HRV, stress, body battery, steps, active calories, VO2 max, weight, respiration). **Click any box** for a one-sentence explanation and a 30-day chart. |
-| **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share), weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
+| **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share) with a short written summary, weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
+| **Insights** | Long-term trends with what they mean (aerobic efficiency in metres per heartbeat, resting HR, VO2 max, compared with a year ago) and personal records |
 | **Calendar** | Month grid coloured by tag or by load, with weekly totals. Click an activity for details. |
 | **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
 | **Recovery** | Resting HR, HRV (with Garmin's balanced range), sleep, body battery and stress with 7-day averages, plus load for context |
@@ -168,6 +169,33 @@ Open Claude Code in this folder and ask questions in plain language, for example
 - "Is my resting HR higher the day after sessions with a load above 150?"
 
 Claude reads the database directly, guided by `DATA.md` and `CLAUDE.md`, and only reads. It never needs your credentials.
+
+---
+
+## Insights
+
+Besides the charts, most pages now also say in words what the numbers mean. Every rule compares you with **your own normal**, not with population averages, and stays quiet when data is missing or old.
+
+| Where | What it tells you |
+|---|---|
+| **Today → Heads-up** | Load ramping up fast (last 7 days vs 6-week average), HRV below your normal range, resting HR up, short sleep, raised breathing rate, no rest day in 10 days, a long break. "No warning signs" when everything is normal. |
+| **Overview** | A written summary of this week so far and last week vs the 4 weeks before |
+| **Intensity** | Too much grey-zone (Z3) time, a high intensity share, very little hard work, change in easy share vs the period before |
+| **Recovery** | Resting HR, HRV and sleep this month vs last month |
+| **O-analysis** | Days since your last orienteering session, orienteering share of your training, trend in time stopped, races this season |
+| **Insights** | Aerobic efficiency and VO2 max vs the same months a year ago, plus personal records |
+
+These are rules of thumb, not medical advice. If something feels off, trust how you feel.
+
+---
+
+## Renaming activities
+
+Garmin names most activities "<City> Running", which makes them hard to find. Give them your own name, e.g. *"Middle distance training Zoniënwoud"* or *"BK Long"*:
+- one at a time on the **Activity** page (Name box above the tag) or in **O-analysis** (*Rename this session*);
+- many at once in the **Name** column of the **Tags** table, then **Save changes**.
+
+Your name is stored only in your local database; Garmin Connect keeps its own name, and syncing never overwrites yours. **Garmin name** (or clearing the name in the Tags table) goes back to Garmin's name. Your names also feed the auto-tag keywords, so naming a run "... orienteering ..." or "... intervals ..." also fixes its automatic tag. Claude Desktop sees your names too.
 
 ---
 

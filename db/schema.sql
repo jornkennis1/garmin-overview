@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS activities (
     activity_id        INTEGER PRIMARY KEY,   -- Garmin activity id (FIT imports: Garmin id if known, else negative synthetic id)
     start_time_local   TEXT NOT NULL,         -- 'YYYY-MM-DD HH:MM:SS' local time
     start_time_utc     TEXT,                  -- 'YYYY-MM-DD HH:MM:SS' UTC
-    name               TEXT,
+    name               TEXT,                  -- name from Garmin (overwritten by every sync)
+    custom_name        TEXT,                  -- your own name, set in the dashboard (never touched by sync)
     sport_type         TEXT,                  -- Garmin typeKey, e.g. running, trail_running, strength_training
     event_type         TEXT,                  -- Garmin event type: race, training, uncategorized, ...
     duration_s         REAL,                  -- elapsed time incl. pauses as recorded by the watch
@@ -159,7 +160,8 @@ SELECT
     a.start_time_local,
     date(a.start_time_local)                         AS day,
     date(a.start_time_local, 'weekday 0', '-6 days') AS week_start,   -- Monday
-    a.name,
+    COALESCE(NULLIF(a.custom_name, ''), a.name)       AS name,         -- your name if set, else Garmin's
+    a.name                                           AS garmin_name,
     a.sport_type,
     a.event_type,
     COALESCE(t.tag, 'other')                         AS tag,
