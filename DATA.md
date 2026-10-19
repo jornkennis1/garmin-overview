@@ -116,6 +116,16 @@ Auto rules live in `garmin_sync/tagging.py`, thresholds and keywords in `config.
 
 **Manual tags are ground truth; treat `auto` tags on runs as a best guess.** This matters most for orienteering, since activity names are Garmin defaults.
 
+### `o_maps`
+Course map per orienteering activity, added on the O-analysis page. The image is `data/maps/<image_file>`.
+
+| Column | Meaning |
+|---|---|
+| `activity_id` | The activity (one map per activity) |
+| `image_file`, `source_name` | Stored PNG in `data/maps/`, original upload name |
+| `dpi` | Resolution of the stored image if known (PDF render), for the map-scale estimate |
+| `map_points`, `track_points` | JSON: 3 matching points, `[[px, py], ...]` on the image and `[[lat, lon], ...]` on the track. The dashboard fits rotation + scale + offset to them. |
+
 ### `sync_state`
 Key/value bookkeeping for resumable syncs (backfill cursors and done flags).
 

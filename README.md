@@ -103,6 +103,7 @@ While the dashboard is open, the **Sync now** button in the sidebar fetches new 
 | **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
 | **Recovery** | Resting HR, HRV (with Garmin's balanced range), sleep, body battery and stress with 7-day averages, plus load for context |
 | **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag editor, optional map |
+| **O-analysis** | All orienteering races and trainings: monthly volume, a session list (time, HR, load, climb, time stopped), and the **course map under your GPS track** (see below) |
 | **Tags** | Filterable table to tag many activities at once, sortable by "orienteering-likeness" |
 | **Settings** | How to switch light/dark, data status (what's synced, from when), where the other settings live |
 
@@ -243,6 +244,20 @@ The model is trained on *your* tags only and also retrains automatically after e
 The **Activity** page shows laps as bars: bar width = lap duration, height = average HR (or pace/speed), colour = HR zone. A table below lists every lap.
 Lap boundaries are also drawn as dotted lines on the HR/pace chart.
 If you press lap at controls during orienteering, this works as a split analysis.
+
+---
+
+## O-analysis: your route on the course map
+
+The **O-analysis** page lists every activity tagged *orienteering race* or *orienteering training*. Select a session to add its course map:
+
+1. Upload the map as **PDF, JPG or PNG** (a PDF export, a scan or a photo taken straight from above).
+2. Mark the **same 3 spots** on the map and on your GPS track, e.g. the start, a control far away and the finish. For each point: click the map, fine-tune it in the zoom, then click the track. Start, finish and lap points snap into place, so if you press lap at controls those are the easiest to use.
+3. Check the preview: the route should follow paths and controls. The *alignment check* shows the error per point (GPS is typically 5–15 m off in the forest) and, for PDFs, the map scale it found.
+4. **Save map**. It's stored in `data/maps/` (git-ignored) and shown every time you open that session.
+
+On a saved map you can colour the route by **HR zone** or **speed** (dark clusters = where you stopped or hesitated), show your lap points, hover the route for time/HR/speed, and download a PNG of the map with the route drawn on it.
+The alignment uses rotation, scale and position only (maps don't stretch), so 3 good points are enough; a photo taken at an angle won't line up everywhere.
 
 ---
 

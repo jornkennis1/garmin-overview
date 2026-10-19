@@ -127,6 +127,19 @@ CREATE TABLE IF NOT EXISTS activity_features (
     updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Orienteering map per activity, aligned to the GPS track with 3 point pairs (O-analysis page).
+-- The image itself is data/maps/<image_file>; the alignment is recomputed from the point pairs.
+CREATE TABLE IF NOT EXISTS o_maps (
+    activity_id   INTEGER PRIMARY KEY REFERENCES activities(activity_id) ON DELETE CASCADE,
+    image_file    TEXT NOT NULL,              -- file name in data/maps/
+    source_name   TEXT,                       -- original upload name (pdf/jpg/png)
+    dpi           REAL,                       -- resolution of the stored image, if known (PDF: render dpi)
+    map_points    TEXT NOT NULL,              -- JSON [[px, py] x 3] in image pixels
+    track_points  TEXT NOT NULL,              -- JSON [[lat, lon] x 3], same order as map_points
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sync_state (
     key    TEXT PRIMARY KEY,
     value  TEXT
