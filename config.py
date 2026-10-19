@@ -1,6 +1,11 @@
-"""Central settings. Secrets are NOT stored here; they come from .env."""
+"""Central settings with sensible defaults.
+
+Personal overrides go in `settings.toml` (git-ignored; copy `settings.example.toml`).
+Secrets are NOT stored here or there; they come from .env.
+"""
 
 import os
+import tomllib
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -101,3 +106,41 @@ TRIMP_K = 1.92
 # Fallback zone lower bounds (bpm, Z1..Z5) for FIT imports when Garmin's zones are unknown.
 # None = derive from HRmax at 50/60/70/80/90 %.
 HR_ZONE_LOWER_BOUNDS = None
+
+
+# ---------------------------------------------------------------- personal overrides
+# Every top-level key in settings.toml overrides the constant of the same name above
+# (case-insensitive, e.g. `hr_max = 195` sets HR_MAX). Unknown keys are an error, so typos don't
+# go unnoticed. TOML has no "None": leave a key out to keep the default.
+SETTINGS_PATH = ROOT / "settings.toml"
+_OVERRIDABLE = {
+    "HR_MAX", "HR_REST", "TRIMP_K", "HR_ZONE_LOWER_BOUNDS", "TAGS",
+    "O_RACE_KEYWORDS", "O_KEYWORDS", "INTERVAL_KEYWORDS", "LONG_RUN_MIN_KM",
+    "INTERVAL_MIN_KM", "INTERVAL_MIN_LAPS", "INTERVAL_LAP_DIST_CV", "INTERVAL_ALTERNATION",
+    "INTERVAL_FAST_SLOW_GAP", "O_MODEL_MIN_EXAMPLES", "O_PROB_THRESHOLD", "API_DELAY_S",
+    "TRAINING_STATUS_BACKFILL_DAYS",
+}
+
+
+def _apply_settings(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        user = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as e:
+        raise SystemExit(f"{path.name} is not valid TOML: {e}") from None
+    for key, value in user.items():
+        name = key.upper()
+        if name not in _OVERRIDABLE:
+            raise SystemExit(f"Unknown setting '{key}' in {path.name}. "
+                             f"Allowed: {', '.join(sorted(k.lower() for k in _OVERRIDABLE))}")
+        if name == "TAGS":
+            unknown = set(value) - set(TAGS)
+            if unknown:
+                raise SystemExit(f"[tags] in {path.name} can only rename existing tags, not add "
+                                 f"{', '.join(sorted(unknown))}")
+            value = {**TAGS, **value}  # relabel only; the tag keys are fixed
+        globals()[name] = value
+
+
+_apply_settings(SETTINGS_PATH)

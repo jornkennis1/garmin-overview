@@ -52,10 +52,11 @@ if model:
 st.subheader("Other settings")
 st.markdown(
     "Tagging thresholds, keywords, HRmax / resting HR overrides and the orienteering threshold are in "
-    "`config.py` in the project folder. After changing them, run `python -m garmin_sync.tagging` "
+    "`settings.toml` in the project folder (copy `settings.example.toml`; defaults are in `config.py`). "
+    "After changing them, run `python -m garmin_sync.tagging` "
     "(tags) or `python -m garmin_sync.metrics` (TRIMP)."
 )
 st.caption(f"Current rules: long run ≥ {config.LONG_RUN_MIN_KM} km · lap-based intervals from {config.INTERVAL_MIN_KM} km "
            f"and ≥ {config.INTERVAL_MIN_LAPS} laps · orienteering when the O score ≥ {config.O_PROB_THRESHOLD:.0%}.")
-st.caption("Privacy: everything stays on this laptop. The dashboard only listens on localhost, credentials live in "
-           "`.env` and the data in `data/`; both are git-ignored.")
+st.caption("Privacy: everything stays on this computer. The dashboard only listens on localhost, login tokens live in "
+           "`~/.garminconnect`, the data in `data/` and your settings in `settings.toml`; none of it is committed.")

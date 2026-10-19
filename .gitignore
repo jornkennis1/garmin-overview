@@ -7,7 +7,9 @@ garmin_tokens.json
 .garminconnect/
 *token*.json
 
-# --- Personal data: never commit ---
+# --- Personal data and settings: never commit ---
+settings.toml
+.claude/settings.local.json
 data/
 *.db
 *.db-journal
@@ -30,3 +32,6 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode/
 .idea/
+*.log
+.DS_Store
+Thumbs.db

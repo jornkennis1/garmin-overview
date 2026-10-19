@@ -102,7 +102,7 @@ def load_curves(daily_load: pd.Series) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    # Recompute TRIMP for every activity, e.g. after changing HR_MAX / HR_REST in config.py.
+    # Recompute TRIMP for every activity, e.g. after changing hr_max / hr_rest in settings.toml.
     from db.database import connect
 
     c = connect()

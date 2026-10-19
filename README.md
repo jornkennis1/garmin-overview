@@ -1,56 +1,99 @@
-# Garmin training overview (private)
+# Garmin training overview
 
-A personal, local-only training dashboard for orienteering, built on my Garmin data.
-It's a free replacement for Shape. Everything runs on this laptop; nothing is hosted anywhere.
+A private, local-only training dashboard built on your own Garmin data, made with orienteering in mind
+(time, heart rate, zones and load first; pace second). It's a free replacement for Shape.
+Everything runs on your own computer; nothing is hosted anywhere.
 
 - **Sync**: `garmin_sync/` fetches activities, laps and daily metrics from Garmin Connect into `data/garmin.db` (SQLite).
-- **Dashboard**: `app/` is a Streamlit app at http://localhost:8501 (only reachable from this laptop).
-- **Data reference**: `DATA.md` describes the tables and views. Claude Code can use it to answer questions about my training.
+- **Dashboard**: `app/` is a Streamlit app at http://localhost:8501, only reachable from your own computer.
+- **Ask Claude**: `mcp_server.py` lets the Claude Desktop app analyse your training (read-only). See [Asking Claude](#asking-claude-about-your-training).
 
-> **Privacy**: `.env` (credentials), `data/` (database, raw data, exports, backups) and FIT/zip files are git-ignored.
-> Login tokens are stored in `~/.garminconnect` in your home folder, outside this repo.
-> The dashboard has no "Deploy" button and listens on 127.0.0.1 only.
+> **Privacy**: your data stays in `data/` and your personal settings in `settings.toml`; both are git-ignored, as are `.env` and FIT/zip files.
+> Garmin login tokens are stored in `~/.garminconnect` in your home folder, outside this repo.
+> The dashboard has no "Deploy" button and listens on localhost only.
+
+---
+
+## Quick start
+
+You need **Python 3.12 or newer** ([python.org](https://www.python.org/downloads/); on Windows tick *Add python.exe to PATH*) and **git**.
+
+**Windows** (PowerShell):
+
+```powershell
+git clone <repo-url> garmin_overview
+cd garmin_overview
+powershell -ExecutionPolicy Bypass -File .\setup.ps1
+```
+
+**macOS / Linux**:
+
+```bash
+git clone <repo-url> garmin_overview
+cd garmin_overview
+./setup.sh
+```
+
+The setup script:
+
+1. creates a virtual environment in `.venv` and installs `requirements.txt`;
+2. creates your own `settings.toml` from `settings.example.toml` (see [Personal settings](#personal-settings));
+3. logs in to Garmin. It asks for your Garmin email and password in the terminal and **doesn't store the password**: only the login tokens are kept in `~/.garminconnect`. With two-step verification (MFA), type in the code Garmin sends you;
+4. optionally fetches your last 30 days;
+5. optionally connects Claude Desktop ([details](#asking-claude-about-your-training));
+6. on Windows, optionally adds a `garmin` terminal command.
+
+It's safe to run again. Then fetch your full history (this can take a few hours because of Garmin's rate limits; stop any time with **Ctrl+C**, the next run resumes):
+
+```powershell
+.venv\Scripts\python -m garmin_sync.sync      # Windows
+.venv/bin/python -m garmin_sync.sync          # macOS / Linux
+```
+
+<details>
+<summary>Manual setup (without the script)</summary>
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1        # macOS / Linux: source .venv/bin/activate
+pip install -r requirements.txt
+Copy-Item settings.example.toml settings.toml    # macOS / Linux: cp
+python -m garmin_sync.auth          # log in once
+python -m garmin_sync.sync --since 2026-09-01    # small test window
+python -m garmin_sync.sync          # full history
+```
+
+If PowerShell refuses to run `Activate.ps1`, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
+</details>
+
+**Optional `.env`**: Garmin tokens last for months and refresh themselves. When they finally expire, run `python -m garmin_sync.auth` again.
+If you'd rather have that happen automatically (e.g. from the dashboard's **Sync now** button), copy `.env.example` to `.env` and fill in `GARMIN_EMAIL` and `GARMIN_PASSWORD`. Your password is then stored in that file on your computer (git-ignored).
 
 ---
 
 ## Daily use
 
-The quickest way, from any folder in PowerShell:
+**Windows**: double-click `start_dashboard.bat`, or in a terminal:
 
 ```powershell
-garmin          # open the dashboard
+garmin          # open the dashboard (if you added the command during setup)
 garmin sync     # sync new Garmin data first, then open the dashboard
-garmin help     # show the options
+powershell -ExecutionPolicy Bypass -File .\sync_and_open.ps1          # same as 'garmin sync'
 ```
 
-The `garmin` command is a small function in your PowerShell profile (`$PROFILE`). It calls `start_dashboard.bat` (open) or `sync_and_open.ps1` (sync + open).
-You can also double-click `start_dashboard.bat` in Explorer.
+**macOS / Linux**:
 
-- **"garmin is not recognized"**: the terminal was opened before the profile existed. Open a new terminal, or run `. $PROFILE` once (dot, space, `$PROFILE`).
-- **Setting it up again** (e.g. on a new laptop): PowerShell's execution policy must allow local scripts (`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`). Then add this line to your profile (`notepad $PROFILE`, create the file if asked), adjusting the path:
-  ```powershell
-  function garmin { param([string]$Action) $p = "C:\Users\jornk\dev\persoonlijk\garmin_overview"; if ($Action -eq "sync") { & "$p\sync_and_open.ps1" } else { & "$p\start_dashboard.bat" } }
-  ```
-
-Without the `garmin` command:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\sync_and_open.ps1          # sync, then open the dashboard
-powershell -ExecutionPolicy Bypass -File .\sync_and_open.ps1 -NoSync  # only open the dashboard
-```
-
-Or step by step:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m garmin_sync.sync
-streamlit run app/Dashboard.py
+```bash
+.venv/bin/python -m garmin_sync.sync                # sync
+.venv/bin/python -m streamlit run app/Dashboard.py  # open the dashboard
 ```
 
 Your browser opens http://localhost:8501 on the **Today** page. Stop the dashboard with **Ctrl+C** in the terminal.
 While the dashboard is open, the **Sync now** button in the sidebar fetches new data too.
 
-**Dark mode**: by default the dashboard follows your Windows light/dark setting. To switch manually, use the **⋮ menu** at the top right: **System / Light / Dark**.
+**"garmin is not recognized"**: open a new terminal, or run `. $PROFILE` once.
+
+**Dark mode**: the dashboard follows your system's light/dark setting. To switch manually, use the **⋮ menu** at the top right: **System / Light / Dark**.
 
 | Page | What it shows |
 |---|---|
@@ -67,51 +110,84 @@ The tag filter in the sidebar applies to every page.
 
 ---
 
-## One-time setup
+## Asking Claude about your training
 
-All commands are for **PowerShell**, run from the project folder (`C:\Users\jornk\dev\persoonlijk\garmin_overview`).
+`mcp_server.py` is a small local **MCP server** that gives the **Claude Desktop** app read-only access to your training database.
+A normal Claude conversation can then analyse your data. It needs no extra packages.
 
-1. **Create and activate the virtual environment, then install dependencies** (needs Python 3.12+):
+### Setup (one time)
+
+1. Install [Claude Desktop](https://claude.ai/download) and sign in.
+2. Run (the setup script offers to do this for you):
    ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
+   .venv\Scripts\python claude_desktop_setup.py --install    # macOS / Linux: .venv/bin/python
    ```
-   If PowerShell refuses to run `Activate.ps1`, run this once:
-   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-   When the venv is active, your prompt starts with `(.venv)`.
+   This adds a `garmin-training` entry to Claude Desktop's config file with the paths of *your* clone, keeps any other MCP servers you have, and saves a `.bak` copy first.
+   Without `--install` it only prints the snippet and the config file location, so you can add it by hand
+   (Claude Desktop → Settings → Developer → *Edit Config*). It looks like this, with your own paths:
+   ```json
+   {
+     "mcpServers": {
+       "garmin-training": {
+         "command": "C:\\path\\to\\garmin_overview\\.venv\\Scripts\\python.exe",
+         "args": ["C:\\path\\to\\garmin_overview\\mcp_server.py"]
+       }
+     }
+   }
+   ```
+   On macOS/Linux, `command` is `/path/to/garmin_overview/.venv/bin/python`.
+3. **Fully quit** Claude Desktop (system tray / menu bar icon → Quit, not just close the window) and start it again.
+4. In a new chat, the tools menu (the sliders/plug icon below the message box) should list **garmin-training**.
 
-2. **Add your Garmin credentials**:
-   ```powershell
-   Copy-Item .env.example .env
-   notepad .env
-   ```
-   Fill in `GARMIN_EMAIL` and `GARMIN_PASSWORD` and save. Only this laptop ever sees them.
+Moved the project folder? Run `claude_desktop_setup.py --install` again.
 
-3. **Test the login**:
-   ```powershell
-   python -m garmin_sync.auth
-   ```
-   If your account has two-step verification (MFA), Garmin emails or texts you a code; type it in when asked.
-   Login tokens are then cached in `~/.garminconnect`. Later runs reuse them and refresh them automatically, so you won't have to log in again until they expire (typically months).
+### Use it
 
-4. **First sync**. Try a small window first, then fetch your full history:
-   ```powershell
-   python -m garmin_sync.sync --since 2026-09-01
-   python -m garmin_sync.sync
-   ```
-   The full history can take a few hours because of Garmin's rate limits. You can stop it at any time with **Ctrl+C**. Everything fetched so far is kept, and the next run continues where it left off.
+Just ask, for example:
+- "Give me an overview of my last 30 days and tell me what I can do better."
+- "How recovered am I? Look at my resting HR, HRV and sleep for the last 2 weeks."
+- "Analyse the laps of my last interval session."
+- "Compare my orienteering volume this autumn with last autumn."
 
-5. **Put the code in a private GitHub repo** (optional):
-   ```powershell
-   git status                                   # .env and data/ must NOT be listed
-   git check-ignore -v .env data/garmin.db      # both should print a .gitignore rule
-   git add .
-   git commit -m "Initial commit"
-   gh repo create garmin-overview --private --source . --push
-   ```
-   No `gh` CLI? Create an empty **private** repo on github.com instead, then run
-   `git remote add origin <url>` and `git push -u origin main`.
+Or pick a ready-made prompt from the **+** menu → garmin-training: **training_review** (coach-style review with advice) or **weekly_checkin**.
+
+Tools Claude can use: `training_summary`, `recovery_summary`, `list_activities`, `get_activity` (incl. laps), `daily_metrics`, `query_database` (read-only SQL) and `data_reference`.
+
+Good to know:
+- The dashboard doesn't need to run, but Claude Desktop does, on the same computer. Claude sees data up to your **last sync**, so sync first for fresh numbers.
+- The server can't change anything: read-only database connection, SELECT-only queries, and no access to `.env` or your Garmin login.
+- The numbers Claude retrieves become part of that conversation, like anything you type.
+- Test without Claude: `.venv\Scripts\python mcp_server.py --selftest`. Problems? Claude Desktop → Settings → Developer shows the server status and its log.
+
+### With Claude Code
+
+Open Claude Code in this folder and ask questions in plain language, for example:
+- "How many hours of orienteering did I do per month this year, compared with last year?"
+- "What was my easy/hard split in the 6 weeks before my last race?"
+- "Is my resting HR higher the day after sessions with a load above 150?"
+
+Claude reads the database directly, guided by `DATA.md` and `CLAUDE.md`, and only reads. It never needs your credentials.
+
+---
+
+## Personal settings
+
+Your personal settings live in **`settings.toml`** (git-ignored, created by the setup script from `settings.example.toml`).
+Every line is optional; uncomment a line to override the default from `config.py`:
+
+| Setting | What it does |
+|---|---|
+| `hr_max`, `hr_rest` | Override HRmax and resting HR used for TRIMP. Default: highest max HR seen (excluding gym sessions) and the median resting HR of the last 60 days. |
+| `trimp_k` | TRIMP curve: `1.92` (standard "male") or `1.67` ("female") |
+| `hr_zone_lower_bounds` | HR zones for FIT imports when Garmin's zones are unknown |
+| `o_race_keywords`, `o_keywords`, `interval_keywords` | Words in activity names that trigger a tag. Add the names you give your own sessions, in your own language. |
+| `long_run_min_km`, `interval_*`, `o_prob_threshold`, ... | Tagging thresholds |
+| `api_delay_s` | Pause between Garmin API calls; raise it if you get rate-limited |
+| `[tags]` | Rename tag labels shown in the dashboard |
+
+A typo in a setting name gives a clear error instead of being silently ignored. After changing heart-rate settings run `python -m garmin_sync.metrics`; after changing tagging settings run `python -m garmin_sync.tagging`.
+
+Heart-rate zones come from Garmin (your zones as set in Garmin Connect). TRIMP, a heart-rate-based load, is computed for every activity as a second load measure and as the fallback for FIT imports.
 
 ---
 
@@ -126,7 +202,7 @@ All commands are for **PowerShell**, run from the project folder (`C:\Users\jorn
 What gets synced:
 - **Activities**: type, date, duration, distance, elevation, average/max HR, training effect and Garmin training load. Per activity also time in HR zones, the HR/pace/elevation stream (~2000 points) and **laps**. Laps aren't fetched for gym, mobility and similar sessions.
 - **Daily metrics**: resting HR, HRV, sleep (duration, stages, score), body battery, stress, steps, active calories, respiration and weight (weigh-ins from a Garmin scale or entered in Garmin Connect).
-- **Training status**: status, acute/chronic load, VO2max and training readiness. Only for the last 365 days, because Garmin offers it per day only.
+- **Training status**: status, acute/chronic load, VO2max and training readiness. Only for the last 365 days by default, because Garmin offers it per day only.
 
 After each sync, TRIMP, the tagging features and the automatic tags are updated.
 
@@ -147,11 +223,11 @@ Tags you set yourself (Tags page or Activity page) are never overwritten. Everyt
 | Strength / Cycling / Hiking-walking | By Garmin activity type |
 | Other | Everything else |
 
-All thresholds and keyword lists are in `config.py`. After editing them, re-apply with `python -m garmin_sync.tagging`.
+All thresholds and keyword lists can be changed in `settings.toml` (see [Personal settings](#personal-settings)).
 
 ### Teaching it to recognise orienteering
 
-Garmin names your runs "<City> Hardlopen", so orienteering has to be recognised from the GPS track.
+Garmin gives runs default names like "<City> Running", so orienteering has to be recognised from the GPS track.
 The signals are sharp direction changes per km, time spent stopped (map reading), how uneven the speed is, and climb per km.
 
 1. Open the **Tags** page, choose sort **"Most orienteering-like first"**, and widen the date range.
@@ -160,72 +236,13 @@ The signals are sharp direction changes per km, time spent stopped (map reading)
    It shows how well the model does (cross-validated accuracy) and then auto-tags runs that score 60% or more as orienteering training.
 4. Check the suggestions (filter "Current tag" = Orienteering training, "Only auto"), correct any mistakes, and retrain. Corrections become new training examples.
 
-The model also retrains automatically after every sync. From the terminal: `python -m garmin_sync.features`.
+The model is trained on *your* tags only and also retrains automatically after every sync. From the terminal: `python -m garmin_sync.features`.
 
 ### Laps
 
 The **Activity** page shows laps as bars: bar width = lap duration, height = average HR (or pace/speed), colour = HR zone. A table below lists every lap.
 Lap boundaries are also drawn as dotted lines on the HR/pace chart.
 If you press lap at controls during orienteering, this works as a split analysis.
-
----
-
-## Heart rate settings
-
-TRIMP, a heart-rate-based load, is computed for every activity as a second load measure and as the fallback for FIT imports.
-It uses HRmax (the highest max HR seen, excluding gym sessions) and your median resting HR.
-To override them, set `HR_MAX` / `HR_REST` in `config.py`, then run `python -m garmin_sync.metrics`.
-Zones come from Garmin (your custom zones as set in Garmin Connect).
-
----
-
-## Asking Claude about your training (Claude Desktop app)
-
-`mcp_server.py` is a small local **MCP server** that gives the Claude Desktop app read-only access to your training database.
-After that, a normal Claude conversation can analyse your data. It's a free replacement for Shape's Claude link.
-
-**Setup (one time).** Already done on this laptop. To redo it, add this to Claude Desktop's config file
-(Claude Desktop → Settings → Developer → *Edit Config*):
-
-```json
-{
-  "mcpServers": {
-    "garmin-training": {
-      "command": "C:\\Users\\jornk\\dev\\persoonlijk\\garmin_overview\\.venv\\Scripts\\python.exe",
-      "args": ["C:\\Users\\jornk\\dev\\persoonlijk\\garmin_overview\\mcp_server.py"]
-    }
-  }
-}
-```
-
-Then **fully quit** Claude Desktop (system tray icon → Quit, not just close the window) and start it again.
-In a new chat, the tools menu (the sliders/plug icon below the message box) should list **garmin-training**.
-
-**Use it.** Just ask, for example:
-- "Give me an overview of my last 30 days and tell me what I can do better."
-- "How recovered am I? Look at my resting HR, HRV and sleep for the last 2 weeks."
-- "Analyse the laps of my last interval session."
-- "Compare my orienteering volume this autumn with last autumn."
-
-Or pick a ready-made prompt from the **+** menu → garmin-training: **training_review** (coach-style review with advice) or **weekly_checkin**.
-
-Tools Claude can use: `training_summary`, `recovery_summary`, `list_activities`, `get_activity` (incl. laps), `daily_metrics`, `query_database` (read-only SQL) and `data_reference`.
-
-Good to know:
-- The dashboard doesn't need to run, but Claude Desktop does, on this laptop. Claude sees data up to your **last sync**, so sync first for fresh numbers.
-- The server can't change anything: read-only database connection, SELECT-only queries, and no access to `.env` or your Garmin login.
-- The numbers Claude retrieves become part of that conversation, like anything you type.
-- Test without Claude: `.venv\Scripts\python mcp_server.py --selftest`. Problems? Claude Desktop → Settings → Developer shows the server status and its log.
-
-### With Claude Code
-
-Open Claude Code in this folder and ask questions in plain language, for example:
-- "How many hours of orienteering did I do per month this year, compared with last year?"
-- "What was my easy/hard split in the 6 weeks before my last race?"
-- "Is my resting HR higher the day after sessions with a load above 150?"
-- "Which weeks had the biggest jump in volume, and how did my HRV respond?"
-
-Claude reads the database directly, guided by `DATA.md` and `CLAUDE.md`, and only reads. It never needs your credentials.
 
 ---
 
@@ -246,13 +263,27 @@ Daily summaries and sleep from the export's JSON files are imported on a best-ef
 
 ---
 
+## Contributing / keeping your data out of git
+
+If you change the code and want to push it back (or to your own fork), check first that nothing personal is staged:
+
+```powershell
+git status                                                  # .env, settings.toml and data/ must NOT be listed
+git check-ignore -v .env settings.toml data/garmin.db       # each should print a .gitignore rule
+```
+
+Personal defaults that everyone could benefit from belong in `config.py`; anything that is just yours belongs in `settings.toml`.
+
+---
+
 ## Troubleshooting
 
-- **"Garmin rejected the login"**: check your password in `.env`. If it's correct, Garmin may have changed its login system (this happens a few times a year). Try `pip install --upgrade garminconnect`. If that doesn't help, use the FIT importer.
-- **"Garmin asks for an MFA code"** (from the Sync now button): the button can't ask for a code. Run `python -m garmin_sync.sync` once in a terminal.
+- **"Garmin rejected the login"**: check your email and password. If they're correct, Garmin may have changed its login system (this happens a few times a year). Try `pip install --upgrade garminconnect`. If that doesn't help, use the FIT importer.
+- **"Garmin asks for an MFA code"** or **"No valid cached login"** (from the Sync now button): the button can't ask for input. Run `python -m garmin_sync.auth` once in a terminal.
 - **"rate-limiting" / HTTP 429**: Garmin is throttling you. Wait 15–60 minutes and run the sync again; it resumes.
 - **Force a fresh login**: delete the folder `~/.garminconnect` and run `python -m garmin_sync.auth`.
+- **"Unknown setting ... in settings.toml"**: a typo in a setting name; the error lists the allowed names.
 - **A field is always empty**: not every watch provides every metric (e.g. HRV, training readiness). Each sync keeps the last raw response per endpoint in `data/raw/samples/` (git-ignored), which helps with debugging.
 - **Dashboard shows old data**: click **Sync now**, or reload the page. Data is cached for 5 minutes.
-- **Something went wrong with the database**: `data/garmin.backup-before-phase4.db` is a copy from before the Phase 4 changes. To start over completely, delete `data/garmin.db` and sync again; manual tags are then lost.
+- **Start over**: delete `data/garmin.db` and sync again; manual tags are then lost.
 - **Upgrading packages**: versions are pinned in `requirements.txt` so nothing changes unexpectedly. To move to a newer `garminconnect` (e.g. after a Garmin login change), change its version number there, run `pip install -r requirements.txt`, and do a test sync with `--since`.

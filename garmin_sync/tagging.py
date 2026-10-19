@@ -1,6 +1,6 @@
 """Suggest a tag for each activity. Manual tags (set in the dashboard) are never touched.
 
-Run `python -m garmin_sync.tagging` to re-apply the rules after editing the settings in config.py.
+Run `python -m garmin_sync.tagging` to re-apply the rules after editing the settings in settings.toml / config.py.
 """
 
 import re

@@ -1,0 +1,50 @@
+# Personal settings. Copy this file to "settings.toml" (git-ignored) and edit that copy.
+# Every setting is optional: a line that is commented out (#) keeps the default from config.py.
+# After changing heart-rate settings run `python -m garmin_sync.metrics`;
+# after changing tagging settings run `python -m garmin_sync.tagging`.
+
+# ---------------------------------------------------------------- heart rate / load
+# By default HRmax = highest activity max HR seen and resting HR = median of the last 60 days.
+# hr_max = 195
+# hr_rest = 45
+
+# Banister TRIMP weighting: 1.92 (standard "male" curve) or 1.67 ("female" curve).
+# trimp_k = 1.92
+
+# Zone lower bounds (bpm, Z1..Z5) for FIT imports when Garmin's zones are unknown.
+# Default: 50/60/70/80/90 % of HRmax.
+# hr_zone_lower_bounds = [98, 117, 137, 156, 176]
+
+# ---------------------------------------------------------------- tagging
+# Keywords are matched case-insensitively as whole words in the activity name (regex allowed).
+# Add words in your own language, e.g. the names you give your sessions.
+# o_race_keywords = ["woc", "eoc", "world cup", "o-ringen", "jukola", "tiomila", "race", "championship"]
+# o_keywords = ["orienteering", "o-training", "sprint o", "middle", "relay", "forest", "map", "controls"]
+# interval_keywords = ["interval", "intervals", "tempo", "threshold", "track", "fartlek", '\d+\s?x\s?\d+']
+
+# long_run_min_km = 15
+
+# Lap-based interval detection: a run of at least interval_min_km with at least
+# interval_min_laps uneven laps that alternate between fast and slow.
+# interval_min_km = 12
+# interval_min_laps = 6
+# interval_lap_dist_cv = 0.25
+# interval_alternation = 0.6
+# interval_fast_slow_gap = 0.12
+
+# Orienteering model: needs this many manually tagged orienteering runs AND other runs,
+# then auto-tags runs scoring at least o_prob_threshold.
+# o_model_min_examples = 8
+# o_prob_threshold = 0.6
+
+# ---------------------------------------------------------------- sync
+# Pause between Garmin API calls (seconds). Raise it if you get rate-limited (HTTP 429).
+# api_delay_s = 0.6
+# Days of training status / readiness history fetched (Garmin only offers it per day).
+# training_status_backfill_days = 365
+
+# ---------------------------------------------------------------- tag labels
+# Rename how tags are shown (the keys are fixed). Must stay at the end of the file.
+# [tags]
+# o_race = "O race"
+# o_training = "O training"

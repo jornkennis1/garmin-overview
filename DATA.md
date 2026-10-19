@@ -31,7 +31,7 @@ Query from the project folder:
 |---|---|
 | `activity_id` | Garmin activity id (PK). FIT imports without a known id use a negative synthetic id. |
 | `start_time_local`, `start_time_utc` | Start time |
-| `name` | Activity name. Often Garmin's default, e.g. `"<City> Hardlopen"`; not reliable for classifying. |
+| `name` | Activity name. Often Garmin's default, e.g. `"<City> Running"` (in the watch's language); not reliable for classifying. |
 | `sport_type` | Garmin typeKey: `running`, `trail_running`, `road_biking`, `hiking`, `walking`, `strength_training`, `indoor_cardio`, `mobility`, ... |
 | `event_type` | Garmin event type: `race`, `training`, `uncategorized`, ... |
 | `duration_s` | Elapsed time incl. pauses |
@@ -102,14 +102,14 @@ Many runs use 1 km auto-laps (laps of equal distance), which say nothing about t
 | `o_race` | Orienteering race |
 | `o_training` | Orienteering training |
 | `interval` | Interval / tempo session |
-| `long_run` | Long run (auto: run ≥ 90 min) |
+| `long_run` | Long run (auto: run ≥ 15 km) |
 | `easy_run` | Easy run (auto: any other run) |
 | `strength` | Strength / gym |
 | `cycling` | Any cycling (road, MTB, gravel, indoor) |
 | `hiking_walking` | Hiking and walking |
 | `other` | Everything else (indoor cardio, mobility, swimming, ...) |
 
-Auto rules live in `garmin_sync/tagging.py`, thresholds and keywords in `config.py`:
+Auto rules live in `garmin_sync/tagging.py`, thresholds and keywords in `config.py` (overridable per user in `settings.toml`):
 - interval = laps marked INTERVAL/RECOVERY, or ≥12 km with ≥6 uneven, alternating laps
 - long run = ≥15 km
 - orienteering = keyword, or `o_prob` ≥ 0.6
