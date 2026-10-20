@@ -20,9 +20,11 @@ CYCLING = ("cycling", "biking", "ride")
 # ---------------------------------------------------------------- choose activity
 qp_id = st.query_params.get("id")
 selected_id = int(qp_id) if qp_id and qp_id.lstrip("-").isdigit() else None
-options = acts["activity_id"].tolist()
-if selected_id is not None and selected_id not in options and selected_id in acts_all["activity_id"].values:
-    options = [selected_id] + options
+nav = acts
+if selected_id is not None and selected_id not in nav["activity_id"].values and selected_id in acts_all["activity_id"].values:
+    # opened via a link but hidden by the tag filter: keep it in its place in time
+    nav = pd.concat([nav, acts_all[acts_all["activity_id"] == selected_id]]).sort_values("start", ascending=False)
+options = nav["activity_id"].tolist()  # newest first
 if not options:
     st.info("No activities match the tag filter.")
     st.stop()
@@ -36,7 +38,16 @@ def label(aid: int) -> str:
 
 
 index = options.index(selected_id) if selected_id in options else 0
-aid = st.selectbox("Activity", options, index=index, format_func=label)
+aid = options[index]
+nav_cols = st.columns([1, 12, 1], vertical_alignment="center")
+older = nav_cols[0].button("<", key="act_prev", disabled=index == len(options) - 1, width="stretch",
+                           help="Previous (older) activity")
+nav_cols[1].markdown(f"<div style='text-align:center;color:{c.TEXT_MUTED}'>{label(aid)} · "
+                     f"{len(options) - index} of {len(options)}</div>", unsafe_allow_html=True)
+newer = nav_cols[2].button(">", key="act_next", disabled=index == 0, width="stretch", help="Next (newer) activity")
+if older or newer:
+    st.query_params["id"] = str(options[index + 1 if older else index - 1])
+    st.rerun()
 if str(aid) != qp_id:
     st.query_params["id"] = str(aid)
 a = labels.loc[aid]
