@@ -137,11 +137,12 @@ Course map per orienteering activity, added on the O-analysis page. The image is
 | `map_points`, `track_points` | JSON: 3 matching points, `[[px, py], ...]` on the image and `[[lat, lon], ...]` on the track. The dashboard fits rotation + scale + offset to them. |
 
 ### `races`
-Races the user plans to run (Plan page); one row per race, not linked to activities. Find the race activity by date (`v_activities.day = races.date`).
+Races the user plans to run (Plan page); one row per race, not linked to activities. Find the race activities by date (`v_activities.day BETWEEN races.date AND COALESCE(races.end_date, races.date)`).
 
 | Column | Meaning |
 |---|---|
-| `date`, `name` | Race date ('YYYY-MM-DD') and name |
+| `date`, `name` | Race date ('YYYY-MM-DD', first day) and name |
+| `end_date` | Last day of a multi-day race; NULL = one-day race |
 | `discipline` | sprint, middle, long, relay, night, ultralong, other |
 | `priority` | A = main goal, B = important, C = training race |
 | `goal`, `notes` | Free text |

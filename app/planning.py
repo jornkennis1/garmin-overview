@@ -23,13 +23,42 @@ def monday(d) -> pd.Timestamp:
 # ---------------------------------------------------------------- storage
 
 def load_races() -> pd.DataFrame:
+    """All races; `end_date` is the last day (= `date` for one-day races), `days` the number of race days."""
     conn = connect()
     try:
-        df = pd.read_sql_query("SELECT race_id, date, name, discipline, priority, goal, notes FROM races ORDER BY date", conn)
+        df = pd.read_sql_query("SELECT race_id, date, end_date, name, discipline, priority, goal, notes "
+                               "FROM races ORDER BY date", conn)
     finally:
         conn.close()
     df["date"] = pd.to_datetime(df["date"])
+    df["end_date"] = pd.to_datetime(df["end_date"]).where(lambda s: s > df["date"], df["date"])
+    df["days"] = (df["end_date"] - df["date"]).dt.days + 1
     return df
+
+
+def race_days(races: pd.DataFrame) -> pd.DataFrame:
+    """One row per race day: race columns plus `day` and `day_no` (1-based)."""
+    rows = []
+    for _, r in races.iterrows():
+        for n, d in enumerate(pd.date_range(r["date"], r["end_date"], freq="D"), start=1):
+            rows.append({**r.to_dict(), "day": d, "day_no": n})
+    return pd.DataFrame(rows, columns=[*races.columns, "day", "day_no"])
+
+
+def fmt_dates(r) -> str:
+    """'Sat 14 Nov' or 'Sat 14 – Sun 15 Nov' (with the month on both sides when it changes)."""
+    a, b = r["date"], r["end_date"]
+    if b <= a:
+        return f"{a:%a %d %b}"
+    return f"{a:%a %d} – {b:%a %d %b}" if a.month == b.month else f"{a:%a %d %b} – {b:%a %d %b}"
+
+
+def race_when(r, today: pd.Timestamp) -> str:
+    if r["date"] > today:
+        return weeks_to(r["date"], today)
+    if r["end_date"] >= today:
+        return f"ongoing · day {(today - r['date']).days + 1} of {r['days']}" if r["days"] > 1 else "today"
+    return "done"
 
 
 def save_races(edited: pd.DataFrame, original: pd.DataFrame) -> int:
@@ -44,12 +73,17 @@ def save_races(edited: pd.DataFrame, original: pd.DataFrame) -> int:
         for _, r in edited.iterrows():
             if pd.isna(r["date"]) or not str(r["name"] or "").strip():
                 continue
-            row = (pd.Timestamp(r["date"]).strftime("%Y-%m-%d"), str(r["name"]).strip(), r["discipline"] or None,
-                   r["priority"] if r["priority"] in PRIORITIES else "B", r["goal"] or None, r["notes"] or None)
+            start = pd.Timestamp(r["date"])
+            end = pd.Timestamp(r["end_date"]) if pd.notna(r.get("end_date")) else None
+            end = end.strftime("%Y-%m-%d") if end is not None and end > start else None  # one day: no end date
+            text = lambda v: v if isinstance(v, str) and v.strip() else None  # noqa: E731
+            row = (start.strftime("%Y-%m-%d"), end, str(r["name"]).strip(), text(r["discipline"]),
+                   r["priority"] if r["priority"] in PRIORITIES else "B", text(r["goal"]), text(r["notes"]))
             if pd.isna(r["race_id"]):
-                conn.execute("INSERT INTO races (date, name, discipline, priority, goal, notes) VALUES (?,?,?,?,?,?)", row)
+                conn.execute("INSERT INTO races (date, end_date, name, discipline, priority, goal, notes) "
+                             "VALUES (?,?,?,?,?,?,?)", row)
             else:
-                conn.execute("""UPDATE races SET date=?, name=?, discipline=?, priority=?, goal=?, notes=?,
+                conn.execute("""UPDATE races SET date=?, end_date=?, name=?, discipline=?, priority=?, goal=?, notes=?,
                                 updated_at=datetime('now') WHERE race_id=?""", (*row, int(r["race_id"])))
             n += 1
         conn.commit()

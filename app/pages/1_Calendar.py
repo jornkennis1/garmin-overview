@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 
 import common as c
+import planning as pl
 
 c.setup_page("Calendar", "📅")
 tags = c.sidebar()
@@ -40,6 +41,9 @@ month_end = month + pd.offsets.MonthEnd(0)
 grid_end = month_end + pd.Timedelta(days=6 - month_end.weekday())
 in_grid = acts[(acts["day"] >= grid_start) & (acts["day"] <= grid_end)].sort_values("start")
 by_day = {d: g for d, g in in_grid.groupby("day")}
+# Planned races (Plan page), on every day of a multi-day race; shown regardless of the tag filter.
+rd = pl.race_days(pl.load_races())
+races_by_day = {d: g for d, g in rd[(rd["day"] >= grid_start) & (rd["day"] <= grid_end)].groupby("day")}
 
 CSS = f"""
 <style>
@@ -54,6 +58,10 @@ CSS = f"""
   background:var(--c) left top / 6px 100% no-repeat, {c.CHIP_BG};padding:3px 6px 3px 12px;margin-bottom:4px;line-height:1.25}}
 .cal a.act:hover{{box-shadow:0 1px 4px rgba(0,0,0,.25)}}
 .cal a.act small{{color:{c.TEXT_MUTED}}}
+.cal a.race{{display:block;text-decoration:none;color:{c.TEXT};border:1.5px dashed {c.TAG_COLORS["o_race"]};
+  border-radius:6px;padding:2px 6px;margin-bottom:4px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}}
+.cal a.race small{{color:{c.TEXT_MUTED};font-weight:400}}
+.legend .flag{{color:{c.TAG_COLORS["o_race"]};font-weight:700}}
 .cal .wk b{{font-size:15px}}
 .legend{{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 2px;font-size:13px;color:{c.TEXT}}}
 .legend span{{display:inline-flex;align-items:center;gap:6px}}
@@ -74,6 +82,14 @@ def chip(a) -> str:
     )
 
 
+def race_banner(r) -> str:
+    multi = f" · day {r['day_no']}/{r['days']}" if r["days"] > 1 else ""
+    title = html.escape(f"{r['name']} ({pl.PRIORITIES.get(r['priority'], r['priority'])}){multi}"
+                        + (f" · goal: {r['goal']}" if isinstance(r["goal"], str) and r["goal"] else ""))
+    return (f'<a class="race" href="/Plan" target="_self" title="{title}">⚑ {html.escape(r["name"])} '
+            f'<small>({r["priority"]}){multi}</small></a>')
+
+
 rows = ['<table class="cal"><tr>' + "".join(f"<th>{d}</th>" for d in calendar.day_abbr) + "<th>Week</th></tr>"]
 day = grid_start
 while day <= grid_end:
@@ -85,7 +101,8 @@ while day <= grid_end:
             cls.append("out")
         if day == today:
             cls.append("today")
-        content = "".join(chip(a) for _, a in by_day[day].iterrows()) if day in by_day else ""
+        content = "".join(race_banner(r) for _, r in races_by_day[day].iterrows()) if day in races_by_day else ""
+        content += "".join(chip(a) for _, a in by_day[day].iterrows()) if day in by_day else ""
         cells.append(f'<td class="{" ".join(cls)}"><div class="dn">{day.day}</div>{content}</td>')
         day += pd.Timedelta(days=1)
     wk = (
@@ -101,7 +118,8 @@ else:
     bounds = c.LOAD_BUCKETS + [None]
     items = [(f"load {lo}–{hi}" if hi else f"load {lo}+", col)
              for lo, hi, col in zip(bounds, bounds[1:], [f"linear-gradient({x}, {x})" for x in c.LOAD_RAMP])]
-legend = '<div class="legend">' + "".join(f'<span style="--c:{col}"><i></i>{lbl}</span>' for lbl, col in items) + "</div>"
+legend = ('<div class="legend">' + "".join(f'<span style="--c:{col}"><i></i>{lbl}</span>' for lbl, col in items)
+          + '<span><b class="flag">⚑</b> Planned race (add on the Plan page)</span></div>')
 
 st.html(CSS + legend + "".join(rows))
 

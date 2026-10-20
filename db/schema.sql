@@ -155,7 +155,8 @@ CREATE TABLE IF NOT EXISTS o_maps (
 -- day is matched by date when it's done.
 CREATE TABLE IF NOT EXISTS races (
     race_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    date         TEXT NOT NULL,               -- 'YYYY-MM-DD'
+    date         TEXT NOT NULL,               -- 'YYYY-MM-DD', first day
+    end_date     TEXT,                        -- last day of a multi-day race (NULL = one day)
     name         TEXT NOT NULL,
     discipline   TEXT,                        -- sprint, middle, long, relay, night, ultralong, other
     priority     TEXT NOT NULL DEFAULT 'B' CHECK (priority IN ('A','B','C')),  -- A = main goal, C = training race

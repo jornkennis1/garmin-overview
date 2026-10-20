@@ -16,7 +16,7 @@ c.require_data(acts)
 today = pd.Timestamp.today().normalize()
 this_monday = pl.monday(today)
 races = pl.load_races()
-upcoming = races[races["date"] >= today]
+upcoming = races[races["end_date"] >= today]  # includes a multi-day race that's under way
 
 tab_races, tab_week, tab_season = st.tabs(["Races", "Weekly plan", "Season"])
 
@@ -26,24 +26,30 @@ with tab_races:
         nxt = upcoming.iloc[0]
         a_races = upcoming[upcoming["priority"] == "A"]
         k = st.columns(3)
-        k[0].metric("Next race", nxt["name"], f"{nxt['date']:%a %d %b} · {pl.weeks_to(nxt['date'], today)}",
+        k[0].metric("Next race", nxt["name"], f"{pl.fmt_dates(nxt)} · {pl.race_when(nxt, today)}",
                     delta_color="off", delta_arrow="off", border=True)
         if not a_races.empty:
             a = a_races.iloc[0]
-            k[1].metric("Next main goal (A)", a["name"], f"{a['date']:%a %d %b} · {pl.weeks_to(a['date'], today)}",
+            k[1].metric("Next main goal (A)", a["name"], f"{pl.fmt_dates(a)} · {pl.race_when(a, today)}",
                         delta_color="off", delta_arrow="off", border=True)
         k[2].metric("Races planned", len(upcoming), f"{len(a_races)} A · {int((upcoming['priority'] == 'B').sum())} B · "
                     f"{int((upcoming['priority'] == 'C').sum())} C", delta_color="off", delta_arrow="off", border=True)
 
     st.subheader("Race calendar")
-    st.caption("Add a row for each race you plan to run. **A** = main goal (gets a full taper), **B** = important, "
-               "**C** = training race. Delete a row with the checkbox on the left and the bin icon.")
-    editor = races.assign(date=races["date"].dt.date)
+    st.caption("Add a row for each race you plan to run. For a multi-day race, fill in **Until** with the last day. "
+               "**A** = main goal (gets a full taper), **B** = important, **C** = training race. "
+               "Delete a row with the checkbox on the left and the bin icon.")
+    editor = races.drop(columns=["days"]).assign(
+        date=races["date"].dt.date,
+        end_date=races["end_date"].where(races["days"] > 1).dt.date)
     edited = st.data_editor(
         editor, num_rows="dynamic", hide_index=True, key="race_editor",
-        column_order=["date", "name", "discipline", "priority", "goal", "notes"],
+        column_order=["date", "end_date", "name", "discipline", "priority", "goal", "notes"],
         column_config={
-            "date": st.column_config.DateColumn("Date", required=True, format="ddd DD MMM YYYY"),
+            "date": st.column_config.DateColumn("Date", required=True, format="ddd DD MMM YYYY",
+                                                help="First day of the race"),
+            "end_date": st.column_config.DateColumn("Until", format="ddd DD MMM YYYY",
+                                                    help="Last day of a multi-day race; leave empty for one day"),
             "name": st.column_config.TextColumn("Race", required=True, max_chars=80),
             "discipline": st.column_config.SelectboxColumn("Discipline", options=pl.DISCIPLINES),
             "priority": st.column_config.SelectboxColumn("Priority", options=list(pl.PRIORITIES), default="B",
@@ -60,12 +66,14 @@ with tab_races:
         st.rerun()
 
     # ------------------------------------------------------------ projection to race day
-    if not upcoming.empty:
+    ahead = upcoming[upcoming["date"] > today]  # races that haven't started: there's a race morning to project
+    if not ahead.empty:
         st.subheader("Form on race day")
-        choices = upcoming["race_id"].tolist()
-        default = a_races.iloc[0]["race_id"] if not a_races.empty else choices[0]
+        choices = ahead["race_id"].tolist()
+        ahead_a = ahead[ahead["priority"] == "A"]
+        default = ahead_a.iloc[0]["race_id"] if not ahead_a.empty else choices[0]
         rid = st.selectbox("Race", choices, index=choices.index(default), key="proj_race",
-                           format_func=lambda r: (lambda x: f"{x['date']:%d %b %Y} · {x['name']} ({x['priority']})")(
+                           format_func=lambda r: (lambda x: f"{pl.fmt_dates(x)} {x['date']:%Y} · {x['name']} ({x['priority']})")(
                                upcoming.set_index("race_id").loc[r]))
         race = upcoming.set_index("race_id").loc[rid]
         race_day = race["date"]
@@ -74,7 +82,7 @@ with tab_races:
         planned = plans["hours"].dropna().to_dict()
         taper = pl.taper_plan(race, usual)
         rl = pl.race_load(acts)
-        extra = {r["date"]: rl for _, r in upcoming.iterrows() if r["date"] <= race_day}
+        extra = {d: rl for d in pl.race_days(upcoming)["day"] if d <= race_day}  # every race day adds load
         mine = pl.project(acts, today, race_day, planned, usual, extra)
         tapered = pl.project(acts, today, race_day, {**planned, **taper}, usual, extra)
         # Form the morning of the race = end of the day before.
@@ -129,30 +137,34 @@ with tab_races:
                    f"a race load of {rl:.0f}. It's a guide, not a promise: illness, heat and sleep matter too.")
 
     # ------------------------------------------------------------ results of past races
-    past = races[races["date"] < today].sort_values("date", ascending=False)
+    past = pl.race_days(races)
+    past = past[past["day"] < today].sort_values("day", ascending=False)
     if not past.empty:
         st.subheader("Past races")
         day_acts = acts.sort_values("load", ascending=False).drop_duplicates("day").set_index("day")
         rows = []
         for _, r in past.iterrows():
-            a = day_acts.loc[r["date"]] if r["date"] in day_acts.index else None
-            rows.append({"Date": f"{r['date']:%d %b %Y}", "Race": r["name"], "Priority": r["priority"],
+            a = day_acts.loc[r["day"]] if r["day"] in day_acts.index else None
+            name = r["name"] + (f" · day {r['day_no']}/{r['days']}" if r["days"] > 1 else "")
+            rows.append({"Date": f"{r['day']:%d %b %Y}", "Race": name, "Priority": r["priority"],
                          "Goal": r["goal"] if isinstance(r["goal"], str) else "", "Time": c.fmt_duration(a["duration_s"]) if a is not None else "–",
                          "Avg HR": "–" if a is None or pd.isna(a["avg_hr"]) else f"{a['avg_hr']:.0f}",
                          "Load": "–" if a is None or pd.isna(a["load"]) else f"{a['load']:.0f}",
                          "Open": f"/Activity?id={int(a['activity_id'])}" if a is not None else None})
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch",
                      column_config={"Open": st.column_config.LinkColumn("Activity", display_text="open")})
-        st.caption("The activity is the one with the highest load on the race date.")
+        st.caption("The activity is the one with the highest load on that race day; multi-day races get a row per day.")
 
 # ================================================================= weekly plan
 with tab_week:
-    last_race_week = pl.monday(upcoming["date"].max()) if not upcoming.empty else this_monday
+    last_race_week = pl.monday(upcoming["end_date"].max()) if not upcoming.empty else this_monday
     weeks = pd.date_range(this_monday - pd.Timedelta(weeks=4),
                           max(this_monday + pd.Timedelta(weeks=8), last_race_week), freq="7D")
     plans = pl.load_plans().reindex(weeks)
     actual = pl.weekly_actuals(acts).reindex(weeks).fillna(0)  # no sessions = 0 done; future weeks are blanked below
-    race_names = races.assign(week=races["date"].map(pl.monday)).groupby("week")["name"].agg(", ".join)
+    rd = pl.race_days(races)
+    race_names = (rd.assign(week=rd["day"].map(pl.monday)).drop_duplicates(["week", "race_id"])
+                  .groupby("week")["name"].agg(", ".join))
     table = pd.DataFrame({
         "Week": [f"{w:%d %b}" + (" (now)" if w == this_monday else "") for w in weeks],
         "Races": race_names.reindex(weeks).fillna("").values,

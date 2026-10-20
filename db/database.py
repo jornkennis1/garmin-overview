@@ -66,6 +66,8 @@ MIGRATIONS: list[str] = [
     ALTER TABLE activity_tags_new RENAME TO activity_tags;
     CREATE INDEX IF NOT EXISTS idx_tags_tag ON activity_tags(tag);
     """,
+    # 6: multi-day races
+    "ALTER TABLE races ADD COLUMN end_date TEXT;",
 ]
 
 

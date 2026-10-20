@@ -17,9 +17,10 @@ acts_all = c.load_activities()
 today = pd.Timestamp.today().normalize()
 this_monday = today - pd.Timedelta(days=today.weekday())
 since30 = today - pd.Timedelta(days=29)
-_next = planning.load_races().query("date >= @today").head(1)
-_race = (f"  ·  next race: **{_next.iloc[0]['name']}** ({_next.iloc[0]['priority']}) "
-         f"{planning.weeks_to(_next.iloc[0]['date'], today)}") if len(_next) else ""
+_next = planning.load_races().query("end_date >= @today").head(1)
+_race = (f"  ·  {'race now' if len(_next) and _next.iloc[0]['date'] <= today else 'next race'}: "
+         f"**{_next.iloc[0]['name']}** ({_next.iloc[0]['priority']}) "
+         f"{planning.race_when(_next.iloc[0], today)}") if len(_next) else ""
 st.caption(f"{today:%A %d %B %Y}{_race}  ·  click a box for a short explanation and the last 30 days")
 
 d = daily.set_index("date").sort_index() if not daily.empty else pd.DataFrame()

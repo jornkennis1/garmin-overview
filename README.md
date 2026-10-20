@@ -101,7 +101,7 @@ While the dashboard is open, the **Sync now** button in the sidebar fetches new 
 | **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share) with a short written summary, weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
 | **Plan** | Race calendar with a countdown and your projected form on race day (your plan vs a suggested taper), weekly plan vs what you actually did, and this season vs earlier seasons |
 | **Insights** | Long-term trends with what they mean (aerobic efficiency in metres per heartbeat, resting HR, VO2 max, compared with a year ago) and personal records |
-| **Calendar** | Month grid coloured by tag or by load, with weekly totals. Click an activity for details. |
+| **Calendar** | Month grid coloured by tag or by load, with weekly totals and your planned races (⚑). Click an activity for details. |
 | **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
 | **Recovery** | Resting HR, HRV (with Garmin's balanced range), sleep, body battery and stress with 7-day averages, plus load for context |
 | **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag editor, optional map |
@@ -194,7 +194,7 @@ These are rules of thumb, not medical advice. If something feels off, trust how 
 
 The **Plan** page has three tabs:
 
-- **Races**: add the races you plan to run (date, name, discipline, priority, goal). **A** = main goal, **B** = important, **C** = training race. For each upcoming race you see your projected **form on race morning** (fitness − fatigue): once with your weekly plan and once with a suggested taper. A tapers over 3 weeks (90%, 75%, 55% of your usual volume), B lightly in race week, C not at all. **Put the taper in my weekly plan** fills only empty weeks. Past races show the activity of that day. The **Today** page shows a countdown to your next race.
+- **Races**: add the races you plan to run (date, name, discipline, priority, goal). For a **multi-day race** fill in *Until* with the last day. Races also appear in the **Calendar** (⚑ banner on every race day, with "day 2/3" for multi-day races). **A** = main goal, **B** = important, **C** = training race. For each upcoming race you see your projected **form on race morning** (fitness − fatigue): once with your weekly plan and once with a suggested taper. A tapers over 3 weeks (90%, 75%, 55% of your usual volume), B lightly in race week, C not at all. **Put the taper in my weekly plan** fills only empty weeks. Past races show the activity of that day. The **Today** page shows a countdown to your next race.
 - **Weekly plan**: planned hours, sessions, orienteering and hard sessions per week, next to what you actually did. The **Overview** page shows this week's plan.
 - **Season**: cumulative hours (or orienteering hours, load, sessions) this season against earlier seasons at the same point, plus totals per season. If your season doesn't start in January, set `season_start_month` in `settings.toml`.
 
