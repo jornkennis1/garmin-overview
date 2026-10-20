@@ -12,7 +12,7 @@ from garmin_sync.features import update_features
 from garmin_sync.tagging import apply_auto_tags, set_custom_name, set_manual_tag
 
 c.setup_page("Tags", "🏷️")
-c.tag_filter_sidebar()
+c.sidebar()
 acts = c.load_activities().sort_values("start", ascending=False)
 c.require_data(acts)
 

@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS training_status (
 
 CREATE TABLE IF NOT EXISTS activity_tags (
     activity_id  INTEGER PRIMARY KEY REFERENCES activities(activity_id) ON DELETE CASCADE,
-    tag          TEXT NOT NULL CHECK (tag IN ('o_race','o_training','interval','long_run','easy_run','strength','cycling','hiking_walking','other')),
+    tag          TEXT NOT NULL,              -- built-in tag (config.TAGS) or your own (custom_tags.key)
     source       TEXT NOT NULL CHECK (source IN ('auto','manual')),
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -126,6 +126,16 @@ CREATE TABLE IF NOT EXISTS activity_features (
     speed_cv            REAL,     -- variability of (smoothed) speed while moving
     o_prob              REAL,     -- orienteering probability from the model trained on manual tags (NULL = no model yet)
     updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Your own tags (Settings page), on top of the built-in ones in config.TAGS.
+CREATE TABLE IF NOT EXISTS custom_tags (
+    key          TEXT PRIMARY KEY,            -- 'my_<label>', stored in activity_tags.tag
+    label        TEXT NOT NULL,
+    color_slot   INTEGER NOT NULL DEFAULT 0,  -- 0-7: which palette hue (shown hatched to tell it apart)
+    keywords     TEXT,                        -- auto rule: comma-separated words in the activity name
+    sport_types  TEXT,                        -- auto rule: comma-separated Garmin sport types
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Orienteering map per activity, aligned to the GPS track with 3 point pairs (O-analysis page).

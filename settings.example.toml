@@ -24,6 +24,9 @@
 
 # long_run_min_km = 15
 
+# Runs shorter than this never get the automatic interval tag.
+# interval_min_total_km = 10
+
 # Lap-based interval detection: a run of at least interval_min_km with at least
 # interval_min_laps uneven laps that alternate between fast and slow.
 # interval_min_km = 12

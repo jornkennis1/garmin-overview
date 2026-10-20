@@ -10,7 +10,7 @@ import planning
 from garmin_sync.metrics import load_curves
 
 c.setup_page("Today", "☀️")
-tags = c.tag_filter_sidebar()
+tags = c.sidebar()
 daily = c.load_daily()
 acts_all = c.load_activities()
 
@@ -184,13 +184,16 @@ def _detail_body(key: str) -> None:
             piv = recent.pivot_table(index="day", columns="tag", values="hours", aggfunc="sum").reindex(days).fillna(0)
             for tag, color in c.TAG_COLORS.items():
                 if tag in piv and piv[tag].sum() > 0:
-                    fig.add_bar(x=piv.index, y=piv[tag], name=c.TAG_LABELS[tag], marker_color=color, hovertemplate="%{y:.1f} h")
+                    fig.add_bar(x=piv.index, y=piv[tag], name=c.TAG_LABELS[tag], marker_color=color,
+                                marker_pattern=c.bar_pattern(tag), hovertemplate="%{y:.1f} h")
             fig.update_layout(barmode="stack")
         else:
             split = recent.groupby("tag")["hours"].sum()
             order = [t for t in c.TAG_COLORS if split.get(t, 0) > 0]
             fig.add_bar(y=[c.TAG_LABELS[t] for t in order], x=[split[t] for t in order], orientation="h",
-                        marker_color=[c.TAG_COLORS[t] for t in order], text=[c.fmt_hours(split[t]) for t in order],
+                        marker_color=[c.TAG_COLORS[t] for t in order],
+                        marker_pattern_shape=[c.TAG_PATTERNS.get(t, "") for t in order],
+                        marker_pattern_fgcolor=c.SURFACE, marker_pattern_solidity=0.3, text=[c.fmt_hours(split[t]) for t in order],
                         textposition="outside", hovertemplate="%{x:.1f} h<extra></extra>")
             fig.update_yaxes(autorange="reversed")
         legend = key == "week"
@@ -257,7 +260,8 @@ with r2[0]:
         fig = go.Figure()
         for tag, color in c.TAG_COLORS.items():
             if tag in piv and piv[tag].sum() > 0:
-                fig.add_bar(x=[f"{x:%a}" for x in piv.index], y=piv[tag], marker_color=color)
+                fig.add_bar(x=[f"{x:%a}" for x in piv.index], y=piv[tag], marker_color=color,
+                            marker_pattern=c.bar_pattern(tag))
         if not fig.data:
             fig.add_bar(x=[f"{x:%a}" for x in days], y=[0] * 7)
         fig.update_layout(barmode="stack", bargap=0.35)
@@ -277,7 +281,7 @@ with r2[1]:
             f'<span style="width:110px;color:{c.TEXT}">{c.TAG_LABELS[t]}</span>'
             f'<span style="flex:1;background:{c.CELL_BG};border-radius:4px;height:10px">'
             f'<span style="display:block;width:{100 * split[t] / total:.0f}%;height:10px;border-radius:4px;'
-            f'background:{c.TAG_COLORS[t]}"></span></span>'
+            f'background:{c.swatch_css(t)}"></span></span>'
             f'<span style="width:52px;text-align:right;color:{c.TEXT_MUTED}">{c.fmt_hours(split[t])}</span></div>'
             for t in order)
         st.markdown(rows, unsafe_allow_html=True)

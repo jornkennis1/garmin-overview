@@ -8,7 +8,7 @@ import common as c
 import insights
 
 c.setup_page("Insights", "💡")
-c.tag_filter_sidebar()  # trends and records always use all activities
+c.sidebar()  # trends and records always use all activities
 acts = c.load_activities()
 c.require_data(acts)
 daily = c.load_daily()

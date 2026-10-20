@@ -107,9 +107,9 @@ While the dashboard is open, the **Sync now** button in the sidebar fetches new 
 | **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag editor, optional map |
 | **O-analysis** | All orienteering races and trainings: monthly volume, a session list (time, HR, load, climb, time stopped), and the **course map under your GPS track** (see below) |
 | **Tags** | Filterable table to tag many activities at once, sortable by "orienteering-likeness" |
-| **Settings** | How to switch light/dark, data status (what's synced, from when), where the other settings live |
+| **Settings** | Which tags the pages show, **your own tags**, how to switch light/dark, data status, where the other settings live |
 
-The tag filter in the sidebar applies to every page.
+Which tags the pages show is set on the **Settings** page (remembered between sessions).
 
 ---
 
@@ -223,7 +223,7 @@ Every line is optional; uncomment a line to override the default from `config.py
 | `trimp_k` | TRIMP curve: `1.92` (standard "male") or `1.67` ("female") |
 | `hr_zone_lower_bounds` | HR zones for FIT imports when Garmin's zones are unknown |
 | `o_race_keywords`, `o_keywords`, `interval_keywords` | Words in activity names that trigger a tag. Add the names you give your own sessions, in your own language. |
-| `long_run_min_km`, `interval_*`, `o_prob_threshold`, ... | Tagging thresholds |
+| `long_run_min_km`, `interval_*`, `o_prob_threshold`, ... | Tagging thresholds (`interval_min_total_km` = 10: shorter runs are never auto-tagged as interval) |
 | `season_start_month` | Month your season starts, for the season comparison on the Plan page (default 1 = January) |
 | `api_delay_s` | Pause between Garmin API calls; raise it if you get rate-limited |
 | `[tags]` | Rename tag labels shown in the dashboard |
@@ -253,20 +253,29 @@ After each sync, TRIMP, the tagging features and the automatic tags are updated.
 
 ## Tags
 
-Every activity gets one tag: **orienteering race, orienteering training, interval, long run, easy run, strength, cycling, hiking/walking** or **other**.
+Every activity gets one tag: **orienteering race, orienteering training, interval, long run, easy run, strength, cycling, hiking/walking**, one of **your own tags**, or **other**.
 Tags you set yourself (Tags page or Activity page) are never overwritten. Everything else gets an automatic suggestion after each sync:
 
 | Tag | Automatic rule |
 |---|---|
 | Orienteering race | A run with Garmin event type "race", or a race keyword in the name (WOC, EOC, World Cup, O-Ringen, ...) |
 | Orienteering training | An orienteering keyword in the name, **or** the orienteering model's score is at least 60% (see below) |
-| Interval | Track run; interval words in the name; laps marked as interval/recovery by Garmin (structured workouts); **or** a run of 12 km or more with at least 6 laps of uneven length that alternate fast/slow. Regular 1 km auto-laps don't count. |
+| Interval | Only runs of 10 km or more (`interval_min_total_km`), then: track run; interval words in the name; laps marked as interval/recovery by Garmin (structured workouts); **or** a run of 12 km or more with at least 6 laps of uneven length that alternate fast/slow. Regular 1 km auto-laps don't count. |
 | Long run | A run of 15 km or more |
 | Easy run | Any other run |
 | Strength / Cycling / Hiking-walking | By Garmin activity type |
 | Other | Everything else |
 
 All thresholds and keyword lists can be changed in `settings.toml` (see [Personal settings](#personal-settings)).
+
+### Your own tags
+
+On the **Settings** page, under *Your own tags*, add a tag for anything the built-in ones don't cover, e.g. *Crosstrainer* or *Swimming*. Give it:
+- **Words in name** (comma-separated): activities whose name contains one of them get the tag automatically. E.g. `cardio` tags every "Cardio" session as Crosstrainer.
+- **Sport types**: Garmin types such as `indoor_cardio` or `lap_swimming` (the page lists the ones in your data).
+- Or no rules at all, and set it by hand on the Tags or Activity page.
+
+Rules of your own tags win over the built-in rules; a tag you set by hand always wins. Your own tags reuse one of the 8 dashboard colours and are drawn **hatched**, so they never look like a built-in tag. Removing a tag gives its activities an automatic tag again.
 
 ### Teaching it to recognise orienteering
 

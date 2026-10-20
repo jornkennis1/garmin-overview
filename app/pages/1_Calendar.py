@@ -9,7 +9,7 @@ import streamlit as st
 import common as c
 
 c.setup_page("Calendar", "📅")
-tags = c.tag_filter_sidebar()
+tags = c.sidebar()
 acts = c.filter_tags(c.load_activities(), tags)
 
 today = pd.Timestamp.today().normalize()
@@ -50,8 +50,8 @@ CSS = f"""
 .cal td.today{{outline:2px solid {c.SERIES_MAIN}}}
 .cal td.week{{background:{c.WEEK_BG};width:11%}}
 .cal .dn{{color:{c.TEXT_MUTED};font-weight:600;margin-bottom:4px}}
-.cal a.act{{display:block;text-decoration:none;color:{c.TEXT};background:{c.CHIP_BG};border-radius:6px;
-  border-left:6px solid var(--c);padding:3px 6px;margin-bottom:4px;line-height:1.25}}
+.cal a.act{{display:block;text-decoration:none;color:{c.TEXT};border-radius:6px;
+  background:var(--c) left top / 6px 100% no-repeat, {c.CHIP_BG};padding:3px 6px 3px 12px;margin-bottom:4px;line-height:1.25}}
 .cal a.act:hover{{box-shadow:0 1px 4px rgba(0,0,0,.25)}}
 .cal a.act small{{color:{c.TEXT_MUTED}}}
 .cal .wk b{{font-size:15px}}
@@ -63,7 +63,7 @@ CSS = f"""
 
 
 def chip(a) -> str:
-    color = c.TAG_COLORS.get(a["tag"], c.MUTED) if color_by == "Tag" else c.load_bucket_color(a["load"])
+    color = c.swatch_css(a["tag"]) if color_by == "Tag" else f"linear-gradient({(lc := c.load_bucket_color(a['load']))}, {lc})"
     hr = f" · {a['avg_hr']:.0f} bpm" if pd.notna(a["avg_hr"]) else ""
     load = f" · load {a['load']:.0f}" if pd.notna(a["load"]) else ""
     title = html.escape(f"{a['name'] or ''} — {c.TAG_LABELS.get(a['tag'], '')}")
@@ -96,11 +96,11 @@ while day <= grid_end:
 rows.append("</table>")
 
 if color_by == "Tag":
-    items = [(c.TAG_LABELS[t], col) for t, col in c.TAG_COLORS.items()]
+    items = [(c.TAG_LABELS[t], c.swatch_css(t)) for t in c.TAG_COLORS]
 else:
     bounds = c.LOAD_BUCKETS + [None]
     items = [(f"load {lo}–{hi}" if hi else f"load {lo}+", col)
-             for lo, hi, col in zip(bounds, bounds[1:], c.LOAD_RAMP)]
+             for lo, hi, col in zip(bounds, bounds[1:], [f"linear-gradient({x}, {x})" for x in c.LOAD_RAMP])]
 legend = '<div class="legend">' + "".join(f'<span style="--c:{col}"><i></i>{lbl}</span>' for lbl, col in items) + "</div>"
 
 st.html(CSS + legend + "".join(rows))

@@ -8,7 +8,7 @@ import common as c
 import insights
 
 c.setup_page("Intensity", "❤️")
-tags = c.tag_filter_sidebar()
+tags = c.sidebar()
 acts = c.filter_tags(c.load_activities(), tags)
 c.require_data(acts)
 

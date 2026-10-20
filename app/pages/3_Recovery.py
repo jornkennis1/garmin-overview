@@ -9,7 +9,7 @@ import common as c
 import insights
 
 c.setup_page("Recovery", "😴")
-c.tag_filter_sidebar()
+c.sidebar()
 daily = c.load_daily()
 c.require_data(daily, "daily metrics")
 acts = c.load_activities()

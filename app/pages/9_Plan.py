@@ -10,7 +10,7 @@ import insights
 import planning as pl
 
 c.setup_page("Plan", "🗓️")
-c.tag_filter_sidebar()  # planning always uses all activities
+c.sidebar()  # planning always uses all activities
 acts = c.load_activities()
 c.require_data(acts)
 today = pd.Timestamp.today().normalize()

@@ -10,7 +10,7 @@ import planning
 from garmin_sync.metrics import load_curves
 
 c.setup_page("Overview")
-tags = c.tag_filter_sidebar()
+tags = c.sidebar()
 acts_all = c.load_activities()
 c.require_data(acts_all)
 acts = c.filter_tags(acts_all, tags)
@@ -79,6 +79,7 @@ fig = go.Figure()
 for tag, color in c.TAG_COLORS.items():
     if tag in vol.columns and vol[tag].sum() > 0:
         fig.add_bar(x=vol.index, y=vol[tag], name=c.TAG_LABELS[tag], marker_color=color,
+                    marker_pattern=c.bar_pattern(tag),
                     hovertemplate="%{y:.1f} h")
 total = vol.sum(axis=1)
 fig.add_scatter(x=total.index, y=total.rolling(4, min_periods=1).mean(), name="4-week average",

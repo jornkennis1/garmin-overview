@@ -25,12 +25,24 @@ import pandas as pd  # noqa: E402
 
 import config  # noqa: E402
 from garmin_sync.metrics import load_curves  # noqa: E402
+from garmin_sync.tagging import all_tags  # noqa: E402
 
 SERVER_INFO = {"name": "garmin-training", "version": "1.0.0"}
 DEFAULT_PROTOCOL = "2025-06-18"
 MAX_ROWS = 500
 QUERY_TIMEOUT_S = 10
-TAGS = config.TAGS
+
+
+def tag_labels() -> dict[str, str]:
+    """Built-in tags plus the user's own (custom_tags), key -> label."""
+    try:
+        conn = connect()
+    except RuntimeError:
+        return dict(config.TAGS)
+    try:
+        return all_tags(conn)
+    finally:
+        conn.close()
 
 
 def log(msg: str) -> None:
@@ -145,7 +157,8 @@ def tool_training_summary(args: dict) -> str:
               .agg(hours=("hours", "sum"), sessions=("activity_id", "count"), load=("load", "sum"),
                    auto_tagged=("tag_source", lambda s: int((s != "manual").sum())))
               .sort_values("hours", ascending=False).reset_index())
-    by_tag["tag"] = by_tag["tag"].map(lambda k: TAGS.get(k, k))
+    labels = tag_labels()
+    by_tag["tag"] = by_tag["tag"].map(lambda k: labels.get(k, k))
     by_tag["share"] = (100 * by_tag["hours"] / by_tag["hours"].sum()).round(0).astype(int).astype(str) + "%"
     out += ["", "## Per tag", table(by_tag),
             "_auto_tagged = rule/model suggestions (manual tags are ground truth)._"]
@@ -158,7 +171,7 @@ def tool_training_summary(args: dict) -> str:
 
     top = cur.sort_values("load", ascending=False).head(5)
     out += ["", "## Hardest sessions (by load)", table(pd.DataFrame({
-        "activity_id": top["activity_id"], "date": top["start_time_local"].str[:16], "tag": top["tag"].map(TAGS),
+        "activity_id": top["activity_id"], "date": top["start_time_local"].str[:16], "tag": top["tag"].map(lambda k: labels.get(k, k)),
         "sport": top["sport_type"], "time": top["duration_s"].map(hm), "avg_hr": top["avg_hr"],
         "load": top["load"], "hard_min": (top["hard_s"] / 60).round(0)}))]
     races = cur[cur["tag"] == "o_race"]
@@ -250,7 +263,7 @@ def tool_get_activity(args: dict) -> str:
         return f"No activity with id {aid}."
     r = a.iloc[0]
     out = [f"# {r['name']} ({r['start_time_local']})",
-           f"- Sport {r['sport_type']}, tag {TAGS.get(r['tag'], r['tag'])} ({r['tag_source'] or 'none'}), event {r['event_type']}",
+           f"- Sport {r['sport_type']}, tag {tag_labels().get(r['tag'], r['tag'])} ({r['tag_source'] or 'none'}), event {r['event_type']}",
            f"- Time {hm(r['duration_s'])} (moving {hm(r['moving_s'])}), distance {(r['distance_m'] or 0) / 1000:.2f} km, "
            f"climb {r['elev_gain_m']} m",
            f"- HR avg {r['avg_hr']} / max {r['max_hr']}, Garmin load {r['training_load']}, TRIMP {r['trimp']}, "

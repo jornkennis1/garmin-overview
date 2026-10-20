@@ -35,10 +35,79 @@ def looks_like_intervals(a: dict) -> bool:
     )
 
 
-def suggest_tag(a: dict) -> str:
-    """`a` holds activity columns plus activity_features columns (missing ones may be None)."""
+# ---------------------------------------------------------------- your own tags
+# Extra tags you add on the Settings page (table custom_tags). Each can have auto rules: words in the
+# activity name and/or Garmin sport types. Their rules are checked before the built-in ones.
+
+def load_custom_tags(conn: sqlite3.Connection) -> list[dict]:
+    try:
+        rows = conn.execute("SELECT key, label, color_slot, keywords, sport_types FROM custom_tags "
+                            "ORDER BY created_at, key").fetchall()
+    except sqlite3.OperationalError:  # database from before custom tags (read-only connections can't migrate)
+        return []
+    out = []
+    for r in rows:
+        words = [w.strip() for w in (r[3] or "").split(",") if w.strip()]
+        sports = {s.strip().lower() for s in (r[4] or "").split(",") if s.strip()}
+        out.append({"key": r[0], "label": r[1], "color_slot": r[2] or 0, "keywords": words,
+                    "sport_types": sports, "matcher": _matcher(words) if words else None})
+    return out
+
+
+def all_tags(conn: sqlite3.Connection) -> dict[str, str]:
+    """Every tag key -> label: built-in tags, your own tags, and "other" last."""
+    tags = {k: v for k, v in config.TAGS.items() if k != "other"}
+    tags.update({t["key"]: t["label"] for t in load_custom_tags(conn)})
+    tags["other"] = config.TAGS["other"]
+    return tags
+
+
+def custom_tag_key(label: str, existing: set[str]) -> str:
+    base = "my_" + (re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or "tag")
+    key, n = base, 2
+    while key in existing or key in config.TAGS:
+        key, n = f"{base}_{n}", n + 1
+    return key
+
+
+def save_custom_tags(conn: sqlite3.Connection, rows: list[dict]) -> None:
+    """Replace your own tags with `rows` (dicts with key (None = new), label, color_slot, keywords, sport_types).
+
+    Activities with a removed tag fall back to the auto rules (also manually tagged ones, since their
+    tag no longer exists). Auto tags are re-applied afterwards.
+    """
+    old = {t["key"] for t in load_custom_tags(conn)}
+    keep = set()
+    for r in rows:
+        label = (r.get("label") or "").strip()
+        if not label:
+            continue
+        key = r.get("key") or custom_tag_key(label, old | keep)
+        keep.add(key)
+        conn.execute(
+            """INSERT INTO custom_tags (key, label, color_slot, keywords, sport_types) VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT (key) DO UPDATE SET label = excluded.label, color_slot = excluded.color_slot,
+               keywords = excluded.keywords, sport_types = excluded.sport_types""",
+            (key, label, int(r.get("color_slot") or 0), (r.get("keywords") or "").strip() or None,
+             (r.get("sport_types") or "").strip() or None),
+        )
+    for key in old - keep:
+        conn.execute("DELETE FROM activity_tags WHERE tag = ?", (key,))
+        conn.execute("DELETE FROM custom_tags WHERE key = ?", (key,))
+    conn.commit()
+    apply_auto_tags(conn)
+
+
+# ---------------------------------------------------------------- rules
+
+def suggest_tag(a: dict, custom: list[dict] | None = None) -> str:
+    """`a` holds activity columns plus activity_features columns (missing ones may be None).
+    `custom`: your own tags (load_custom_tags), whose rules win over the built-in ones."""
     name = a.get("name") or ""
     sport = a.get("sport_type") or ""
+    for t in custom or []:
+        if (t["matcher"] and t["matcher"].search(name)) or sport.lower() in t["sport_types"]:
+            return t["key"]
     is_run = sport in config.RUN_TYPES
     is_race = a.get("event_type") == "race" or bool(_RACE.search(name))
     o_prob = a.get("o_prob")
@@ -50,7 +119,8 @@ def suggest_tag(a: dict) -> str:
         if is_o:
             return "o_training"
     if is_run:
-        if sport == "track_running" or _INTERVAL.search(name) or looks_like_intervals(a):
+        long_enough = _num(a.get("distance_m")) >= config.INTERVAL_MIN_TOTAL_KM * 1000
+        if long_enough and (sport == "track_running" or _INTERVAL.search(name) or looks_like_intervals(a)):
             return "interval"
         if _num(a.get("distance_m")) >= config.LONG_RUN_MIN_KM * 1000:
             return "long_run"
@@ -76,9 +146,10 @@ def apply_auto_tags(conn: sqlite3.Connection) -> int:
            LEFT JOIN activity_tags t USING (activity_id)
            WHERE t.source IS NULL OR t.source = 'auto'"""
     ).fetchall()
+    custom = load_custom_tags(conn)
     changed = 0
     for r in rows:
-        tag = suggest_tag(dict(r))
+        tag = suggest_tag(dict(r), custom)
         if tag != r["tag"]:
             conn.execute(
                 """INSERT INTO activity_tags (activity_id, tag, source) VALUES (?, ?, 'auto')
@@ -91,7 +162,7 @@ def apply_auto_tags(conn: sqlite3.Connection) -> int:
 
 
 def set_manual_tag(conn: sqlite3.Connection, activity_id: int, tag: str) -> None:
-    if tag not in config.TAGS:
+    if tag not in all_tags(conn):
         raise ValueError(f"unknown tag {tag!r}")
     conn.execute(
         """INSERT INTO activity_tags (activity_id, tag, source) VALUES (?, ?, 'manual')
@@ -123,5 +194,6 @@ if __name__ == "__main__":
 
     c = connect()
     print(f"{apply_auto_tags(c)} auto tags updated.")
+    labels = all_tags(c)
     for row in c.execute("SELECT tag, source, count(*) n FROM activity_tags GROUP BY 1, 2 ORDER BY 3 DESC"):
-        print(f"  {config.TAGS[row['tag']]:<24} {row['source']:<7} {row['n']}")
+        print(f"  {labels.get(row['tag'], row['tag']):<24} {row['source']:<7} {row['n']}")

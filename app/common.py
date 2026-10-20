@@ -13,8 +13,11 @@ import pandas as pd  # noqa: E402
 import plotly.graph_objects as go  # noqa: E402
 import streamlit as st  # noqa: E402
 
+import json  # noqa: E402
+
 import config  # noqa: E402
-from db.database import connect, get_state  # noqa: E402
+from db.database import connect, get_state, set_state  # noqa: E402
+from garmin_sync.tagging import load_custom_tags  # noqa: E402
 
 # ---------------------------------------------------------------- colours (light + dark)
 # Categorical slots in fixed order (validated for colour-blind separation in both modes); one per tag.
@@ -61,17 +64,49 @@ def is_dark() -> bool:
         return False
 
 
-def apply_theme() -> None:
-    """Expose the current theme's colours as module constants (c.TAG_COLORS etc.).
+HUE_NAMES = ["Blue", "Orange", "Aqua", "Yellow", "Magenta", "Green", "Violet", "Red"]  # palette slot order
 
-    Single-user local app, so module globals are fine; they are set at the start of every page run.
+
+def apply_theme() -> None:
+    """Expose the current theme's colours and the tag set as module constants (c.TAG_COLORS etc.).
+
+    Your own tags reuse one of the 8 palette hues and are drawn hatched (TAG_PATTERNS), so no unvalidated
+    extra colours are needed. Single-user local app, so module globals are fine; they are set at the
+    start of every page run.
     """
-    globals().update(THEMES["dark" if is_dark() else "light"])
+    theme = THEMES["dark" if is_dark() else "light"]
+    globals().update(theme)
+    palette = list(theme["TAG_COLORS"].values())[:8]
+    conn = connect()
+    try:
+        custom = load_custom_tags(conn)
+    finally:
+        conn.close()
+    labels = {k: v for k, v in config.TAGS.items() if k != "other"}
+    colors = {k: v for k, v in theme["TAG_COLORS"].items() if k != "other"}
+    for t in custom:
+        labels[t["key"]] = t["label"]
+        colors[t["key"]] = palette[t["color_slot"] % 8]
+    labels["other"], colors["other"] = config.TAGS["other"], theme["TAG_COLORS"]["other"]
+    globals().update(TAG_LABELS=labels, TAG_COLORS=colors, TAG_PATTERNS={t["key"]: "/" for t in custom})
 
 
 apply_theme()
 
-TAG_LABELS = config.TAGS
+
+def bar_pattern(tag: str) -> dict:
+    """Plotly marker pattern for a tag: hatched for your own tags, solid for the built-in ones."""
+    if tag in TAG_PATTERNS:
+        return dict(shape=TAG_PATTERNS[tag], fgcolor=SURFACE, size=7, solidity=0.3)
+    return dict(shape="")
+
+
+def swatch_css(tag: str) -> str:
+    """CSS background image for a tag chip in HTML (same hatching as the charts)."""
+    color = TAG_COLORS.get(tag, MUTED)
+    if tag in TAG_PATTERNS:
+        return f"repeating-linear-gradient(45deg, {color} 0 4px, {SURFACE} 4px 6px)"
+    return f"linear-gradient({color}, {color})"
 
 
 # ---------------------------------------------------------------- formatting
@@ -162,25 +197,39 @@ def setup_page(title: str, icon: str = "🧭") -> None:
     st.title(title)
 
 
-def tag_filter_sidebar() -> list[str]:
-    """Global tag filter shown in the sidebar on every page; the choice survives page switches."""
-    if "tag_filter" not in st.session_state:
-        st.session_state["tag_filter"] = list(TAG_LABELS)
+def hidden_tags() -> list[str]:
+    """Tags hidden on the pages (chosen on the Settings page, remembered in the database).
 
-    def _store():
-        st.session_state["tag_filter"] = st.session_state["_tag_filter_widget"]
+    Stored as the hidden ones, so a tag you add later is shown by default.
+    """
+    conn = connect()
+    try:
+        raw = get_state(conn, "hidden_tags", "[]")
+    finally:
+        conn.close()
+    try:
+        return [t for t in json.loads(raw) if t in TAG_LABELS]
+    except (TypeError, ValueError):
+        return []
 
-    st.sidebar.multiselect(
-        "Show tags",
-        options=list(TAG_LABELS),
-        default=st.session_state["tag_filter"],
-        format_func=TAG_LABELS.get,
-        key="_tag_filter_widget",
-        on_change=_store,
-    )
-    st.sidebar.caption("Filter applies to all pages. Edit tags on the **Tags** or **Activity** page.")
+
+def set_hidden_tags(tags: list[str]) -> None:
+    conn = connect()
+    try:
+        set_state(conn, "hidden_tags", json.dumps(sorted(tags)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def sidebar() -> list[str]:
+    """Sidebar on every page (sync button). Returns the tags to show, set on the Settings page."""
+    hidden = hidden_tags()
+    if hidden:
+        st.sidebar.caption(f"Showing {len(TAG_LABELS) - len(hidden)} of {len(TAG_LABELS)} tags · "
+                           "change this on the **Settings** page.")
     _sync_sidebar()
-    return st.session_state["tag_filter"]
+    return [t for t in TAG_LABELS if t not in hidden]
 
 
 def _sync_sidebar() -> None:

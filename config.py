@@ -79,6 +79,9 @@ HIKE_WALK_WORDS = ("hiking", "walking", "mountaineering")
 
 LONG_RUN_MIN_KM = 15
 
+# Runs shorter than this never get the automatic interval tag (they become easy runs).
+INTERVAL_MIN_TOTAL_KM = 10
+
 # Month your training season starts (1 = January). Used by the season comparison on the Plan page.
 SEASON_START_MONTH = 1
 
@@ -121,7 +124,7 @@ _OVERRIDABLE = {
     "O_RACE_KEYWORDS", "O_KEYWORDS", "INTERVAL_KEYWORDS", "LONG_RUN_MIN_KM",
     "INTERVAL_MIN_KM", "INTERVAL_MIN_LAPS", "INTERVAL_LAP_DIST_CV", "INTERVAL_ALTERNATION",
     "INTERVAL_FAST_SLOW_GAP", "O_MODEL_MIN_EXAMPLES", "O_PROB_THRESHOLD", "API_DELAY_S",
-    "TRAINING_STATUS_BACKFILL_DAYS", "SEASON_START_MONTH",
+    "TRAINING_STATUS_BACKFILL_DAYS", "SEASON_START_MONTH", "INTERVAL_MIN_TOTAL_KM",
 }
 
 

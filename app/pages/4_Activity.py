@@ -10,7 +10,7 @@ from db.database import connect
 from garmin_sync.tagging import reset_to_auto, set_manual_tag
 
 c.setup_page("Activity", "🏃")
-tags = c.tag_filter_sidebar()
+tags = c.sidebar()
 acts_all = c.load_activities()
 c.require_data(acts_all)
 acts = c.filter_tags(acts_all, tags).sort_values("start", ascending=False)

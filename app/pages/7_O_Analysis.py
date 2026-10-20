@@ -12,7 +12,7 @@ import insights
 import o_maps as om
 
 c.setup_page("O-analysis", "🧭")
-c.tag_filter_sidebar()  # the tag filter doesn't apply here: this page always shows the two O tags
+c.sidebar()  # the tag filter doesn't apply here: this page always shows the two O tags
 acts_all = c.load_activities()
 c.require_data(acts_all)
 

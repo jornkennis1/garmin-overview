@@ -96,7 +96,7 @@ Many runs use 1 km auto-laps (laps of equal distance), which say nothing about t
 `date`, `status` (`PRODUCTIVE`, `MAINTAINING`, `RECOVERY`, `UNPRODUCTIVE`, `DETRAINING`, `PEAKING`, `OVERREACHING`, `STRAINED`, ...), `acute_load`, `chronic_load`, `acwr` (acute:chronic ratio), `vo2max`, `readiness_score` (0–100), `readiness_level`.
 
 ### `activity_tags`: training category per activity
-`activity_id`, `tag`, `source` (`auto` = rule-based suggestion, `manual` = set by the athlete; manual is never overwritten).
+`activity_id`, `tag`, `source` (`auto` = rule-based suggestion, `manual` = set by the athlete; manual is never overwritten). Besides the built-in tags below, `tag` can be one of the athlete's own tags (`custom_tags.key`, starting with `my_`).
 
 | tag | meaning |
 |---|---|
@@ -111,11 +111,20 @@ Many runs use 1 km auto-laps (laps of equal distance), which say nothing about t
 | `other` | Everything else (indoor cardio, mobility, swimming, ...) |
 
 Auto rules live in `garmin_sync/tagging.py`, thresholds and keywords in `config.py` (overridable per user in `settings.toml`):
-- interval = laps marked INTERVAL/RECOVERY, or ≥12 km with ≥6 uneven, alternating laps
+- interval = runs ≥10 km only; then laps marked INTERVAL/RECOVERY, interval words, track, or ≥12 km with ≥6 uneven, alternating laps
 - long run = ≥15 km
 - orienteering = keyword, or `o_prob` ≥ 0.6
 
 **Manual tags are ground truth; treat `auto` tags on runs as a best guess.** This matters most for orienteering, since activity names are Garmin defaults.
+
+### `custom_tags`
+The athlete's own tags (Settings page), e.g. `my_crosstrainer` = "Crosstrainer".
+
+| Column | Meaning |
+|---|---|
+| `key`, `label` | Stored in `activity_tags.tag` / shown name |
+| `color_slot` | 0-7, palette hue (drawn hatched) |
+| `keywords`, `sport_types` | Auto rules: comma-separated words in the activity name / Garmin sport types |
 
 ### `o_maps`
 Course map per orienteering activity, added on the O-analysis page. The image is `data/maps/<image_file>`.

@@ -51,6 +51,21 @@ MIGRATIONS: list[str] = [
     """,
     # 4: your own activity names (sync only writes `name`)
     "ALTER TABLE activities ADD COLUMN custom_name TEXT;",
+    # 5: your own tags: drop the fixed tag list from the CHECK constraint (SQLite needs a table rebuild)
+    """
+    DROP VIEW IF EXISTS v_weekly;
+    DROP VIEW IF EXISTS v_activities;
+    CREATE TABLE activity_tags_new (
+        activity_id  INTEGER PRIMARY KEY REFERENCES activities(activity_id) ON DELETE CASCADE,
+        tag          TEXT NOT NULL,
+        source       TEXT NOT NULL CHECK (source IN ('auto','manual')),
+        updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO activity_tags_new SELECT activity_id, tag, source, updated_at FROM activity_tags;
+    DROP TABLE activity_tags;
+    ALTER TABLE activity_tags_new RENAME TO activity_tags;
+    CREATE INDEX IF NOT EXISTS idx_tags_tag ON activity_tags(tag);
+    """,
 ]
 
 
