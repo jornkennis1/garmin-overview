@@ -51,3 +51,18 @@ def test_connect_twice_is_a_no_op(tmp_path):
         assert conn.execute("PRAGMA user_version").fetchone()[0] == len(MIGRATIONS)
     finally:
         conn.close()
+
+
+def test_schema_runs_once_per_process_and_again_for_a_new_file(tmp_path, monkeypatch):
+    from db import database
+
+    runs = []
+    real = database.init_db
+    monkeypatch.setattr(database, "init_db", lambda conn: (runs.append(1), real(conn)))
+    path = tmp_path / "garmin.db"
+    for _ in range(3):
+        database.connect(path).close()
+    assert len(runs) == 1
+    path.unlink()  # e.g. "start over": a new database file gets the schema again
+    database.connect(path).close()
+    assert len(runs) == 2

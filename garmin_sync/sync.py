@@ -105,6 +105,11 @@ def compact(row: dict) -> dict:
     return {k: v for k, v in row.items() if v is not None}
 
 
+def _marks(values) -> str:
+    """'?, ?, ?' for an SQL IN list of these values."""
+    return ", ".join("?" * len(values))
+
+
 def daterange(start: date, end: date):
     d = start
     while d <= end:
@@ -340,8 +345,9 @@ def store_laps(conn, activity_id: int, laps: list[dict]) -> None:
 
 def sync_laps(client, conn, since: str | None) -> int:
     """Fetch laps (splits) for activities that don't have them yet. Runs first, newest first."""
-    skip = ",".join(f"'{t}'" for t in config.NO_LAP_TYPES)
-    conn.execute(f"UPDATE activities SET laps_fetched = 1 WHERE laps_fetched = 0 AND sport_type IN ({skip})")
+    skip = sorted(config.NO_LAP_TYPES)
+    conn.execute(f"UPDATE activities SET laps_fetched = 1 WHERE laps_fetched = 0 AND sport_type IN ({_marks(skip)})",
+                 skip)
     conn.commit()
     sql = ("SELECT activity_id, start_time_local, start_time_utc FROM activities "
            "WHERE laps_fetched = 0 AND source = 'api'")
@@ -349,9 +355,9 @@ def sync_laps(client, conn, since: str | None) -> int:
     if since:
         sql += " AND start_time_local >= ?"
         params.append(since)
-    run_types = ",".join(f"'{t}'" for t in config.RUN_TYPES)
+    run_types = sorted(config.RUN_TYPES)
     todo = conn.execute(
-        sql + f" ORDER BY sport_type IN ({run_types}) DESC, start_time_local DESC", params
+        sql + f" ORDER BY sport_type IN ({_marks(run_types)}) DESC, start_time_local DESC", [*params, *run_types]
     ).fetchall()
     if not todo:
         return 0

@@ -7,11 +7,28 @@ import config
 
 
 def connect(db_path: Path = config.DB_PATH) -> sqlite3.Connection:
-    """Open the database, creating it and applying the schema if needed."""
+    """Open the database, creating it and applying the schema if needed.
+
+    The schema and migrations run once per process (and again when schema.sql changes), so the
+    dashboard can open a connection per query cheaply.
+    """
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    stamp = (str(db_path.resolve()), config.SCHEMA_PATH.stat().st_mtime_ns)
+    exists = db_path.exists()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    if not exists or stamp not in _initialised:
+        init_db(conn)
+        _initialised.add(stamp)
+    return conn
+
+
+_initialised: set[tuple[str, int]] = set()
+
+
+def init_db(conn: sqlite3.Connection) -> None:
+    """Apply schema.sql and any pending migrations."""
     conn.execute("PRAGMA journal_mode = WAL")
     fresh = conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'activities'").fetchone() is None
     schema = config.SCHEMA_PATH.read_text(encoding="utf-8")
@@ -20,7 +37,6 @@ def connect(db_path: Path = config.DB_PATH) -> sqlite3.Connection:
         conn.execute(f"PRAGMA user_version = {len(MIGRATIONS)}")
     elif _migrate(conn):
         conn.executescript(schema)  # recreate views dropped by migrations
-    return conn
 
 
 def add_column(table: str, column_def: str):
