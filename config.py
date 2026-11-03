@@ -36,6 +36,10 @@ DAILY_INITIAL_RECENT_DAYS = 28
 # Training status/readiness only exist per day, so their history is limited to this many days.
 TRAINING_STATUS_BACKFILL_DAYS = 365
 
+# Re-fetch the summaries of this many recent days on every sync: picks up activities you renamed or
+# deleted in Garmin and load values Garmin fills in later. `--refresh-days N` changes it for one run.
+ACTIVITY_REFRESH_DAYS = 30
+
 # Number of HR/pace samples requested per activity (Garmin downsamples to this many points).
 ACTIVITY_SAMPLE_POINTS = 2000
 
@@ -118,13 +122,14 @@ HR_ZONE_LOWER_BOUNDS = None
 # Every top-level key in settings.toml overrides the constant of the same name above
 # (case-insensitive, e.g. `hr_max = 195` sets HR_MAX). Unknown keys are an error, so typos don't
 # go unnoticed. TOML has no "None": leave a key out to keep the default.
-SETTINGS_PATH = ROOT / "settings.toml"
+SETTINGS_PATH = Path(os.getenv("GARMIN_SETTINGS_PATH") or ROOT / "settings.toml")  # override only for testing
 _OVERRIDABLE = {
     "HR_MAX", "HR_REST", "TRIMP_K", "HR_ZONE_LOWER_BOUNDS", "TAGS",
     "O_RACE_KEYWORDS", "O_KEYWORDS", "INTERVAL_KEYWORDS", "LONG_RUN_MIN_KM",
     "INTERVAL_MIN_KM", "INTERVAL_MIN_LAPS", "INTERVAL_LAP_DIST_CV", "INTERVAL_ALTERNATION",
     "INTERVAL_FAST_SLOW_GAP", "O_MODEL_MIN_EXAMPLES", "O_PROB_THRESHOLD", "API_DELAY_S",
     "TRAINING_STATUS_BACKFILL_DAYS", "SEASON_START_MONTH", "INTERVAL_MIN_TOTAL_KM",
+    "ACTIVITY_REFRESH_DAYS",
 }
 
 

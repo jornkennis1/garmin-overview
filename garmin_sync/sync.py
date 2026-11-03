@@ -4,6 +4,7 @@ Usage (from the project folder, with the venv active):
     python -m garmin_sync.sync                    # normal daily use: only fetch what's new
     python -m garmin_sync.sync --since 2026-09-01 # limit history (handy for a first test)
     python -m garmin_sync.sync --no-details       # skip per-activity HR/pace streams (faster)
+    python -m garmin_sync.sync --refresh-days 365 # re-check a year of activities for renames/deletions
 
 Safe to interrupt with Ctrl+C: everything fetched so far is saved and the next run resumes.
 """
@@ -176,6 +177,47 @@ def sync_activities(client, conn, since: str | None) -> int:
     return new
 
 
+def refresh_recent_activities(client, conn, days: int, since: str | None) -> int:
+    """Re-fetch the summaries of the last `days` days and drop activities you deleted in Garmin.
+
+    Picks up renames and values Garmin fills in later. Deleting an activity also removes its tag,
+    your own name and its O-map. FIT imports are never touched. Returns the number deleted.
+    """
+    today = date.today()
+    start = today - timedelta(days=days - 1)
+    if since:
+        start = max(start, date.fromisoformat(since))
+    if days <= 0 or start > today:
+        return 0
+    # End a day late, so an activity from today is always inside the requested range.
+    found = call(client.get_activities_by_date, start.isoformat(), (today + timedelta(days=1)).isoformat(),
+                 sample="activities_by_date") or []
+    for a in found:
+        upsert(conn, "activities", parse_activity(a), "activity_id")
+    garmin_ids = {a["activityId"] for a in found}
+    local = conn.execute(
+        "SELECT activity_id, start_time_local, name FROM activities "
+        "WHERE source = 'api' AND date(start_time_local) BETWEEN ? AND ?",
+        (start.isoformat(), today.isoformat()),
+    ).fetchall()
+    gone = [r for r in local if r["activity_id"] not in garmin_ids]
+    if gone and not found:  # an empty answer is more likely a Garmin hiccup than a deleted month
+        print(f"  note: Garmin returned no activities since {start}; not removing any.", flush=True)
+        gone = []
+    for r in gone:
+        print(f"  removed (deleted in Garmin): {r['start_time_local'][:16]} {r['name'] or ''}", flush=True)
+        _delete_activity(conn, r["activity_id"])
+    conn.commit()
+    return len(gone)
+
+
+def _delete_activity(conn, activity_id: int) -> None:
+    """Delete an activity; child rows go via ON DELETE CASCADE, the O-map image file by hand."""
+    for (image_file,) in conn.execute("SELECT image_file FROM o_maps WHERE activity_id = ?", (activity_id,)):
+        (config.DATA_DIR / "maps" / image_file).unlink(missing_ok=True)
+    conn.execute("DELETE FROM activities WHERE activity_id = ?", (activity_id,))
+
+
 def parse_zones(activity_id: int, zones) -> list[dict]:
     rows = []
     for z in zones or []:
@@ -314,7 +356,8 @@ def sync_laps(client, conn, since: str | None) -> int:
     if not todo:
         return 0
     print(f"Laps: {len(todo)} activities to fetch (runs first) ...", flush=True)
-    for done, row in enumerate(todo, start=1):
+    done = 0
+    for i, row in enumerate(todo, start=1):
         aid = row["activity_id"]
         try:
             splits = call(client.get_activity_splits, aid, sample="activity_splits")
@@ -325,9 +368,10 @@ def sync_laps(client, conn, since: str | None) -> int:
             continue
         store_laps(conn, aid, parse_laps(aid, splits or {}, row["start_time_utc"]))
         conn.commit()
-        if done % 50 == 0 or done == len(todo):
-            print(f"  ... {done}/{len(todo)}", flush=True)
-    return len(todo)
+        done += 1
+        if i % 50 == 0 or i == len(todo):
+            print(f"  ... {i}/{len(todo)}", flush=True)
+    return done
 
 
 # ---------------------------------------------------------------- daily metrics (per day)
@@ -574,6 +618,9 @@ def main(argv=None) -> None:
     p.add_argument("--no-details", action="store_true", help="skip per-activity HR zones and HR/pace streams")
     p.add_argument("--activities-only", action="store_true")
     p.add_argument("--daily-only", action="store_true")
+    p.add_argument("--refresh-days", type=int, default=config.ACTIVITY_REFRESH_DAYS, metavar="N",
+                   help="re-check the activities of the last N days for renames and deletions "
+                        f"(default {config.ACTIVITY_REFRESH_DAYS}, 0 = off)")
     args = p.parse_args(argv)
     if args.since:
         try:
@@ -591,6 +638,8 @@ def main(argv=None) -> None:
     try:
         if not args.daily_only:
             sync_activities(client, conn, args.since)
+            if get_state(conn, "activities_backfill_done") == "1":  # the first full sync is fresh anyway
+                refresh_recent_activities(client, conn, args.refresh_days, args.since)
         if not args.activities_only:
             sync_daily(client, conn, args.since)
             sync_weight(client, conn, args.since)

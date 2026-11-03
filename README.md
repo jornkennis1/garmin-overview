@@ -241,6 +241,7 @@ Heart-rate zones come from Garmin (your zones as set in Garmin Connect). TRIMP, 
 | `--since YYYY-MM-DD` | Only fetch data on or after this date |
 | `--no-details` | Skip per-activity HR zones, HR/pace stream and laps (much faster) |
 | `--activities-only` / `--daily-only` | Sync only one part |
+| `--refresh-days N` | Re-check the activities of the last N days (default 30, `0` = off). See below |
 
 What gets synced:
 - **Activities**: type, date, duration, distance, elevation, average/max HR, training effect and Garmin training load. Per activity also time in HR zones, the HR/pace/elevation stream (~2000 points) and **laps**. Laps aren't fetched for gym, mobility and similar sessions.
@@ -248,6 +249,11 @@ What gets synced:
 - **Training status**: status, acute/chronic load, VO2max and training readiness. Only for the last 365 days by default, because Garmin offers it per day only.
 
 After each sync, TRIMP, the tagging features and the automatic tags are updated.
+
+Every sync also re-checks the activities of the last 30 days (`activity_refresh_days` in `settings.toml`). That picks up
+names and load values you or Garmin changed afterwards, and **removes activities you deleted in Garmin**, together
+with their tag, your own name and their O-map. Older activities are left alone; to re-check further back once, run
+the sync with e.g. `--refresh-days 365`. Activities imported from FIT files are never removed.
 
 ---
 
@@ -339,6 +345,13 @@ git check-ignore -v .env settings.toml data/garmin.db       # each should print 
 ```
 
 Personal defaults that everyone could benefit from belong in `config.py`; anything that is just yours belongs in `settings.toml`.
+
+Run the tests before pushing (they use made-up data only; never your database or `settings.toml`):
+
+```powershell
+.venv\Scripts\python -m pip install -r requirements-dev.txt   # once
+.venv\Scripts\python -m pytest -q
+```
 
 ---
 

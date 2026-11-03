@@ -49,6 +49,8 @@
 # api_delay_s = 0.6
 # Days of training status / readiness history fetched (Garmin only offers it per day).
 # training_status_backfill_days = 365
+# Recent days whose activities are re-checked on every sync (renames, deletions, late load values).
+# activity_refresh_days = 30
 
 # ---------------------------------------------------------------- tag labels
 # Rename how tags are shown (the keys are fixed). Must stay at the end of the file.
