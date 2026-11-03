@@ -101,12 +101,13 @@ While the dashboard is open, the **Sync now** button in the sidebar fetches new 
 | **Overview** | This week vs the previous 4 weeks (hours, sessions, load, easy share) with a short written summary, weekly hours by tag, weekly load, fitness/fatigue curves, recent sessions |
 | **Plan** | Race calendar with a countdown and your projected form on race day (your plan vs a suggested taper), weekly plan vs what you actually did, and this season vs earlier seasons |
 | **Insights** | Long-term trends with what they mean (aerobic efficiency in metres per heartbeat, resting HR, VO2 max, compared with a year ago) and personal records |
-| **Calendar** | Month grid coloured by tag or by load, with weekly totals and your planned races (⚑). Click an activity for details. |
+| **Calendar** | Month grid coloured by tag or by load, with weekly totals, your planned races (⚑) and injury/illness/holiday notes. Click an activity for details. |
 | **Intensity** | Time in HR zones per week (3- or 5-zone), easy vs hard trend, zone split per tag |
 | **Recovery** | Resting HR, HRV (with Garmin's balanced range), sleep, body battery and stress with 7-day averages, plus load for context |
-| **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag editor, optional map |
+| **Activity** | One session: time/HR/load first, HR with zone bands and lap lines, pace (speed for cycling), elevation, **laps** (chart + table), time in zones, tag and extra-tag editor, optional map |
 | **O-analysis** | All orienteering races and trainings: monthly volume, a session list (time, HR, load, climb, time stopped), and the **course map under your GPS track** (see below) |
-| **Tags** | Filterable table to tag many activities at once, sortable by "orienteering-likeness" |
+| **Report** | A weekly or monthly summary to download as one HTML file, e.g. for a coach |
+| **Tags** | Filterable table to tag many activities at once (main and extra tags), sortable by "orienteering-likeness" |
 | **Settings** | Which tags the pages show, **your own tags**, how to switch light/dark, data status, where the other settings live |
 
 Which tags the pages show is set on the **Settings** page (remembered between sessions).
@@ -179,7 +180,7 @@ Besides the charts, most pages now also say in words what the numbers mean. Ever
 
 | Where | What it tells you |
 |---|---|
-| **Today → Heads-up** | Load ramping up fast (last 7 days vs 6-week average), HRV below your normal range, resting HR up, short sleep, raised breathing rate, no rest day in 10 days, a long break. "No warning signs" when everything is normal. |
+| **Today → Heads-up** | Load ramping up fast (last 7 days vs 6-week average), HRV below your normal range, resting HR up, short sleep, raised breathing rate, no rest day in 10 days, a long break. "No warning signs" when everything is normal. During an injury, illness or holiday [note](#injury-illness-and-holiday-notes) it doesn't mention light weeks or days without training. |
 | **Overview** | A written summary of this week so far and last week vs the 4 weeks before |
 | **Intensity** | Too much grey-zone (Z3) time, a high intensity share, very little hard work, change in easy share vs the period before |
 | **Recovery** | Resting HR, HRV and sleep this month vs last month |
@@ -199,6 +200,18 @@ The **Plan** page has three tabs:
 - **Season**: cumulative hours (or orienteering hours, load, sessions) this season against earlier seasons at the same point, plus totals per season. If your season doesn't start in January, set `season_start_month` in `settings.toml`.
 
 The projection is a guide: it spreads your planned hours evenly over the week and uses your recent load per hour. Weeks without a plan continue at your usual volume (average of the last 4 weeks).
+
+---
+
+## Injury, illness and holiday notes
+
+Open **Injury, illness and holiday notes** below the **Calendar** and add a row: from, until (empty for one day), kind and a short note such as *flu* or *sprained ankle*. Notes show on every day they cover in the calendar. During an injury, illness or holiday note (and for 3 days after it), the **Today** page doesn't warn about light training or days without training. Notes also appear in the **Report** and Claude Desktop sees them.
+
+---
+
+## Report: weekly or monthly summary
+
+The **Report** page makes a summary of a week or month: time, sessions, load, orienteering and hard sessions compared with the previous week or month and with the average of the 4 before; highlights; training per day; intensity split; time per tag; plan vs actual (weeks with a plan); races; recovery (resting HR, HRV, sleep); notes; and every session. **Download report** saves it as one HTML file that works without internet, e.g. to send to a coach. To get a PDF, open the file in your browser and print to PDF. The report always uses all activities, whatever tags you hide.
 
 ---
 
@@ -259,7 +272,7 @@ the sync with e.g. `--refresh-days 365`. Activities imported from FIT files are 
 
 ## Tags
 
-Every activity gets one tag: **orienteering race, orienteering training, interval, long run, easy run, strength, cycling, hiking/walking**, one of **your own tags**, or **other**.
+Every activity gets one main tag: **orienteering race, orienteering training, interval, long run, easy run, strength, cycling, hiking/walking**, one of **your own tags**, or **other**.
 Tags you set yourself (Tags page or Activity page) are never overwritten. Everything else gets an automatic suggestion after each sync:
 
 | Tag | Automatic rule |
@@ -273,6 +286,10 @@ Tags you set yourself (Tags page or Activity page) are never overwritten. Everyt
 | Other | Everything else |
 
 All thresholds and keyword lists can be changed in `settings.toml` (see [Personal settings](#personal-settings)).
+
+### Extra tags
+
+Some sessions are two things at once, e.g. an orienteering training with intervals. Keep the main tag (it decides the colour and the totals, so no time is counted twice) and add **extra tags**: on the **Activity** page (*Extra tags*, then **Save extra tags**) or in the **Extra tags** column of the **Tags** table. Extra tags are only set by hand. They count where "was this also ...?" matters: hard sessions and orienteering sessions on the **Plan** page, the **O-analysis** page, the tag filter on the **Tags** page, the **Report** and Claude Desktop.
 
 ### Your own tags
 
@@ -292,7 +309,7 @@ The signals are sharp direction changes per km, time spent stopped (map reading)
 2. Tag at least **8 orienteering sessions** (training or race) **and 8 normal runs** (easy, long or interval) by hand, then **Save changes**. More examples give better results; 20+ of each is ideal.
 3. Open **"Orienteering detection"** at the top of the page and click **Retrain & re-apply auto tags**.
    It shows how well the model does (cross-validated accuracy) and then auto-tags runs that score 60% or more as orienteering training.
-4. Check the suggestions (filter "Current tag" = Orienteering training, "Only auto"), correct any mistakes, and retrain. Corrections become new training examples.
+4. Check the suggestions (filter "Tag" = Orienteering training, "Only auto"), correct any mistakes, and retrain. Corrections become new training examples.
 
 The model is trained on *your* tags only and also retrains automatically after every sync. From the terminal: `python -m garmin_sync.features`.
 

@@ -17,7 +17,10 @@ acts_all = c.load_activities()
 c.require_data(acts_all)
 
 O_TAGS = ["o_race", "o_training"]
-o_all = acts_all[acts_all["tag"].isin(O_TAGS)].sort_values("start", ascending=False)
+o_all = acts_all[c.has_tag(acts_all, O_TAGS)].sort_values("start", ascending=False).copy()
+# Extra tags count too (e.g. an interval session that was also an O training); on this page "tag" is the O kind.
+o_all["tag"] = o_all["tag"].where(o_all["tag"].isin(O_TAGS),
+                                  c.has_tag(o_all, ["o_race"]).map({True: "o_race", False: "o_training"}))
 if o_all.empty:
     st.info("No activities tagged as orienteering race or training yet. Tag them on the **Tags** or "
             "**Activity** page; the orienteering model then finds more of them automatically.")

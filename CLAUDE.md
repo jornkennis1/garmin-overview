@@ -8,9 +8,11 @@ Private, local-only training dashboard for an orienteer (Garmin data → SQLite 
 - Never read, print or commit `.env`, `~/.garminconnect/` or anything in `data/`. Keep the repo free of personal paths, names and data: friends clone it.
 - Run code with the venv: `.venv\Scripts\python -m garmin_sync.sync` etc. Defaults are in `config.py`; personal overrides in `settings.toml` (git-ignored, template `settings.example.toml`, never commit it). New overridable settings go in `_OVERRIDABLE` in `config.py` and in `settings.example.toml`.
 - `app/insights.py`: rule-based insight texts shown on the pages (compare with the user's own normal; stay quiet without recent data).
-- Tags: built-in in `config.TAGS`, the user's own in table `custom_tags` (`garmin_sync/tagging.py`: `all_tags`, `load_custom_tags`). Don't hard-code the tag list.
+- Tags: built-in in `config.TAGS`, the user's own in table `custom_tags` (`garmin_sync/tagging.py`: `all_tags`, `load_custom_tags`). Don't hard-code the tag list. One main tag per activity (`activity_tags`, decides totals and colours) plus manual extra tags (`activity_extra_tags`); use `has_tag` when "was this also an interval/O session" matters.
 - Activity names: sync writes `activities.name`; the user's own name is `custom_name`. Always read names via `v_activities.name`.
 - `app/planning.py` + `app/pages/9_Plan.py`: races, weekly plans (tables `races`, `week_plans`), form projection, taper, season comparison.
+- `app/notes.py` (table `day_notes`, edited on the Calendar page): injury/illness/holiday notes; they pause the light-training insights.
+- `app/report.py` + `app/pages/10_Report.py`: weekly/monthly report as one self-contained HTML file (no scripts, light theme for printing).
 - `app/o_maps.py` + `app/pages/7_O_Analysis.py`: course maps aligned to GPS tracks (images in `data/maps/`, alignment in `o_maps`).
-- Tests: `.venv\Scripts\python -m pytest -q` (`tests/`, dev deps in `requirements-dev.txt`). Made-up data only, never copy from `data/`. `tests/conftest.py` points config at temp paths.
+- Tests: `.venv\Scripts\python -m pytest -q` (`tests/`, dev deps in `requirements-dev.txt`). Made-up data only, never copy from `data/`. `tests/conftest.py` points config at temp paths; `tests/test_pages.py` runs every page on made-up data.
 - Schema changes: new tables/views go in `db/schema.sql`; changes to existing tables go in `MIGRATIONS` in `db/database.py` (use `add_column` for tables newer than some databases; `tests/test_migrations.py` checks old databases migrate). Keep `DATA.md` in sync.

@@ -50,7 +50,10 @@ def _baseline(s: pd.Series, today: pd.Timestamp, start_days: int = 33, end_days:
 
 # ---------------------------------------------------------------- Today: how am I doing right now?
 
-def readiness(acts: pd.DataFrame, daily: pd.DataFrame, today: pd.Timestamp) -> list[Insight]:
+def readiness(acts: pd.DataFrame, daily: pd.DataFrame, today: pd.Timestamp,
+              on_break: str | None = None) -> list[Insight]:
+    """`on_break`: description of an injury/illness/holiday note covering today (or just ended). Then the
+    rules about missing or light training stay quiet; the body signals (HRV, resting HR, sleep) still count."""
     out: list[Insight] = []
     checked = []
 
@@ -68,13 +71,13 @@ def readiness(acts: pd.DataFrame, daily: pd.DataFrame, today: pd.Timestamp) -> l
             out.append(Insight("info", "Load is building",
                                f"Your last-7-days load is {ratio:.1f}× your 6-week average. Fine for a block of "
                                "harder training, as long as you recover well."))
-        elif ratio < 0.7 and ctl >= 20:
+        elif ratio < 0.7 and ctl >= 20 and not on_break:
             out.append(Insight("info", "Light period",
                                f"Your last-7-days load is only {ratio:.0%} of your 6-week average. Good for recovery "
                                "or a taper; if it lasts more than about two weeks, fitness starts to drop."))
 
     if daily.empty:
-        return out
+        return ([Insight("info", "Break noted", f"{on_break}.")] if on_break else []) + out
     d = _daily(daily)
 
     # HRV against Garmin's personal balanced range.
@@ -137,7 +140,7 @@ def readiness(acts: pd.DataFrame, daily: pd.DataFrame, today: pd.Timestamp) -> l
             out.append(Insight("info", "No rest day in 10 days",
                                "Easy sessions help, but a full day off now and then lets body and mind recover."))
         gap = (today - acts["day"].max()).days
-        if gap >= 4:
+        if gap >= 4 and not on_break:
             out.append(Insight("info", f"{gap} days without training",
                                "Fine if planned (taper, illness, holiday). Fitness only starts to drop noticeably "
                                "after about two weeks."))
@@ -145,6 +148,10 @@ def readiness(acts: pd.DataFrame, daily: pd.DataFrame, today: pd.Timestamp) -> l
     if checked and not any(i.level == "warning" for i in out):
         out.insert(0, Insight("good", "No warning signs",
                               f"Checked {', '.join(checked)}: nothing unusual compared with your own normal."))
+    if on_break:
+        out.insert(0, Insight("info", "Break noted",
+                              f"{on_break}. Less or no training is expected, so the hints about light weeks and "
+                              "days without training are paused until a few days after it ends."))
     return out
 
 

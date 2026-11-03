@@ -93,9 +93,22 @@ def save_custom_tags(conn: sqlite3.Connection, rows: list[dict]) -> None:
         )
     for key in old - keep:
         conn.execute("DELETE FROM activity_tags WHERE tag = ?", (key,))
+        conn.execute("DELETE FROM activity_extra_tags WHERE tag = ?", (key,))
         conn.execute("DELETE FROM custom_tags WHERE key = ?", (key,))
     conn.commit()
     apply_auto_tags(conn)
+
+
+def has_tag(acts, tags):
+    """For a DataFrame of v_activities rows: True where the main tag or an extra tag is in `tags`.
+
+    Uses the `extras` list column (see app/common.load_activities) when it's there.
+    """
+    tags = set(tags)
+    hit = acts["tag"].isin(tags)
+    if "extras" in acts:
+        hit |= acts["extras"].map(lambda xs: bool(tags & set(xs)))
+    return hit
 
 
 # ---------------------------------------------------------------- rules
@@ -157,6 +170,8 @@ def apply_auto_tags(conn: sqlite3.Connection) -> int:
                 (r["activity_id"], tag),
             )
             changed += 1
+    # An extra tag that became the main tag is redundant.
+    conn.execute("DELETE FROM activity_extra_tags WHERE (activity_id, tag) IN (SELECT activity_id, tag FROM activity_tags)")
     conn.commit()
     return changed
 
@@ -170,6 +185,20 @@ def set_manual_tag(conn: sqlite3.Connection, activity_id: int, tag: str) -> None
            updated_at = datetime('now')""",
         (activity_id, tag),
     )
+    conn.execute("DELETE FROM activity_extra_tags WHERE activity_id = ? AND tag = ?", (activity_id, tag))
+    conn.commit()
+
+
+def set_extra_tags(conn: sqlite3.Connection, activity_id: int, tags: list[str]) -> None:
+    """Replace an activity's extra tags (on top of its main tag; set by hand only, never automatic)."""
+    known = all_tags(conn)
+    unknown = [t for t in tags if t not in known]
+    if unknown:
+        raise ValueError(f"unknown tag(s) {', '.join(map(repr, unknown))}")
+    main = conn.execute("SELECT tag FROM activity_tags WHERE activity_id = ?", (activity_id,)).fetchone()
+    conn.execute("DELETE FROM activity_extra_tags WHERE activity_id = ?", (activity_id,))
+    conn.executemany("INSERT INTO activity_extra_tags (activity_id, tag) VALUES (?, ?)",
+                     [(activity_id, t) for t in dict.fromkeys(tags) if not main or t != main[0]])
     conn.commit()
 
 

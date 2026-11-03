@@ -1,4 +1,5 @@
--- Schema for data/garmin.db. Applied idempotently on every connect (CREATE ... IF NOT EXISTS).
+-- Schema for data/garmin.db. Applied idempotently (CREATE ... IF NOT EXISTS) on the first connect of
+-- each process and again whenever this file changes.
 -- Units: durations in seconds, distances/elevation in metres, speed in m/s, HR in bpm.
 -- Dates/times are ISO-8601 text. Local time is the athlete's wall-clock time.
 
@@ -97,6 +98,14 @@ CREATE TABLE IF NOT EXISTS activity_tags (
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Extra tags you add by hand on top of the main tag (e.g. an O training that was also an interval
+-- session). The main tag in activity_tags decides colours and totals, so no hours are counted twice.
+CREATE TABLE IF NOT EXISTS activity_extra_tags (
+    activity_id  INTEGER NOT NULL REFERENCES activities(activity_id) ON DELETE CASCADE,
+    tag          TEXT NOT NULL,              -- built-in or your own tag, never the activity's main tag
+    PRIMARY KEY (activity_id, tag)
+);
+
 CREATE TABLE IF NOT EXISTS activity_laps (
     activity_id     INTEGER NOT NULL REFERENCES activities(activity_id) ON DELETE CASCADE,
     lap_index       INTEGER NOT NULL,         -- 1-based
@@ -176,6 +185,17 @@ CREATE TABLE IF NOT EXISTS week_plans (
     updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Injury, illness, holiday and other notes on the calendar (Calendar page). Insights about missing or
+-- light training stay quiet during a note.
+CREATE TABLE IF NOT EXISTS day_notes (
+    note_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT NOT NULL,               -- 'YYYY-MM-DD', first day
+    end_date     TEXT,                        -- last day (NULL = one day)
+    kind         TEXT NOT NULL DEFAULT 'other' CHECK (kind IN ('injury','illness','holiday','other')),
+    text         TEXT,
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sync_state (
     key    TEXT PRIMARY KEY,
     value  TEXT
@@ -185,7 +205,7 @@ CREATE INDEX IF NOT EXISTS idx_activities_utc ON activities(start_time_utc);
 CREATE INDEX IF NOT EXISTS idx_tags_tag ON activity_tags(tag);
 
 -- ---------------------------------------------------------------- views
--- Views are recreated on every connect so changes here always take effect.
+-- Views are recreated whenever schema.sql changes (checked on connect).
 
 -- One row per activity with its tag, a single "load" number and the 3-zone split.
 DROP VIEW IF EXISTS v_activities;
@@ -201,6 +221,7 @@ SELECT
     a.event_type,
     COALESCE(t.tag, 'other')                         AS tag,
     t.source                                         AS tag_source,
+    x.extra_tags,                                                     -- comma-separated, NULL = none
     a.duration_s,
     a.moving_s,
     a.duration_s / 3600.0                            AS hours,
@@ -225,6 +246,10 @@ SELECT
 FROM activities a
 LEFT JOIN activity_tags t USING (activity_id)
 LEFT JOIN activity_features f USING (activity_id)
+LEFT JOIN (
+    SELECT activity_id, group_concat(tag, ',') AS extra_tags
+    FROM (SELECT * FROM activity_extra_tags ORDER BY tag) GROUP BY activity_id
+) x USING (activity_id)
 LEFT JOIN (
     SELECT activity_id,
            SUM(CASE WHEN zone = 1 THEN seconds END) AS z1_s,

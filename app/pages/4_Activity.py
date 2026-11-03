@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 
 import common as c
 from db.database import connect
-from garmin_sync.tagging import reset_to_auto, set_manual_tag
+from garmin_sync.tagging import reset_to_auto, set_extra_tags, set_manual_tag
 
 c.setup_page("Activity", "🏃")
 tags = c.sidebar()
@@ -34,7 +34,7 @@ labels = acts_all.set_index("activity_id")
 def label(aid: int) -> str:
     a = labels.loc[aid]
     return (f"{a['start']:%a %d %b %Y %H:%M} · {c.sport_label(a['sport_type'])} · "
-            f"{c.fmt_duration(a['duration_s'])} · {c.TAG_LABELS.get(a['tag'], a['tag'])}")
+            f"{c.fmt_duration(a['duration_s'])} · {c.tag_text(a)}")
 
 
 index = options.index(selected_id) if selected_id in options else 0
@@ -98,6 +98,21 @@ with st.container(border=True):
         st.rerun()
     tc[3].caption(f"Current: **{c.TAG_LABELS.get(a['tag'], a['tag'])}** "
                   f"({'set by you' if a['tag_source'] == 'manual' else 'automatic suggestion'})")
+    xc = st.columns([3, 1, 4], vertical_alignment="bottom")
+    extras = xc[0].multiselect(
+        "Extra tags", [t for t in tag_keys if t not in (a["tag"], "other")], default=[t for t in a["extras"] if t in tag_keys],
+        format_func=c.TAG_LABELS.get, key=f"extras_{aid}", placeholder="None",
+        help="Also counts as these, e.g. an O training that was an interval session too. The main tag above "
+             "decides the colour and the totals, so no time is counted twice.")
+    if xc[1].button("Save extra tags", disabled=sorted(extras) == sorted(a["extras"])):
+        conn = connect()
+        try:
+            set_extra_tags(conn, int(aid), extras)
+        finally:
+            conn.close()
+        c.clear_cache()
+        st.toast("Extra tags saved")
+        st.rerun()
 
 # ---------------------------------------------------------------- streams
 s = c.load_samples(int(aid))

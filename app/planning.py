@@ -6,6 +6,7 @@ import pandas as pd
 
 import config
 from db.database import connect
+from garmin_sync.tagging import has_tag
 from insights import Insight
 
 DISCIPLINES = ["sprint", "middle", "long", "relay", "sprint relay", "night", "ultralong", "other"]
@@ -130,11 +131,11 @@ def save_plans(rows: pd.DataFrame) -> None:
 # ---------------------------------------------------------------- actuals
 
 def is_hard(acts: pd.DataFrame) -> pd.Series:
-    return acts["tag"].isin(["interval", "o_race"]) | (acts["hard_s"].fillna(0) >= 600)
+    return has_tag(acts, ["interval", "o_race"]) | (acts["hard_s"].fillna(0) >= 600)
 
 
 def weekly_actuals(acts: pd.DataFrame) -> pd.DataFrame:
-    a = acts.assign(o=acts["tag"].isin(["o_race", "o_training"]), hard=is_hard(acts))
+    a = acts.assign(o=has_tag(acts, ["o_race", "o_training"]), hard=is_hard(acts))
     return a.groupby("week_start").agg(actual_hours=("hours", "sum"), actual_sessions=("activity_id", "count"),
                                        actual_o=("o", "sum"), actual_hard=("hard", "sum"))
 

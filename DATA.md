@@ -117,6 +117,9 @@ Auto rules live in `garmin_sync/tagging.py`, thresholds and keywords in `config.
 
 **Manual tags are ground truth; treat `auto` tags on runs as a best guess.** This matters most for orienteering, since activity names are Garmin defaults.
 
+### `activity_extra_tags`: extra tags on top of the main tag
+`activity_id`, `tag`: set by hand only, e.g. an orienteering training (main tag `o_training`) that was also an interval session (extra `interval`). Never the same as the activity's main tag. The main tag decides totals, so sum hours per main tag (`v_activities.tag`) to avoid counting time twice; use extra tags to answer "which sessions were also ...". `v_activities.extra_tags` has them comma-separated.
+
 ### `custom_tags`
 The athlete's own tags (Settings page), e.g. `my_crosstrainer` = "Crosstrainer".
 
@@ -143,7 +146,7 @@ Races the user plans to run (Plan page); one row per race, not linked to activit
 |---|---|
 | `date`, `name` | Race date ('YYYY-MM-DD', first day) and name |
 | `end_date` | Last day of a multi-day race; NULL = one-day race |
-| `discipline` | sprint, middle, long, relay, night, ultralong, other |
+| `discipline` | sprint, middle, long, relay, sprint relay, night, ultralong, other |
 | `priority` | A = main goal, B = important, C = training race |
 | `goal`, `notes` | Free text |
 
@@ -157,6 +160,15 @@ The user's weekly training plan (Plan page). Compare with actuals from `v_activi
 | `o_sessions`, `hard_sessions` | Planned orienteering sessions; planned hard sessions (intervals, races, or 10+ min in Z4-5) |
 | `notes` | Free text, e.g. "Taper for BK Middle" |
 
+### `day_notes`
+Injury, illness, holiday and other notes on the calendar (Calendar page). Use them to explain gaps or low volume, and don't read a break during a note as a loss of motivation or fitness.
+
+| Column | Meaning |
+|---|---|
+| `date`, `end_date` | First and last day ('YYYY-MM-DD'); `end_date` NULL = one day |
+| `kind` | `injury`, `illness`, `holiday` or `other` |
+| `text` | Free text, e.g. "flu", "sprained ankle" |
+
 ### `sync_state`
 Key/value bookkeeping for resumable syncs (backfill cursors and done flags).
 
@@ -165,8 +177,8 @@ Key/value bookkeeping for resumable syncs (backfill cursors and done flags).
 ## Views (use these first)
 
 ### `v_activities`
-`activities` + tag + zones flattened: `activity_id, start_time_local, day, week_start, name, garmin_name, sport_type, event_type, tag, tag_source, duration_s, moving_s, hours, distance_m, elev_gain_m, avg_hr, max_hr, aerobic_te, anaerobic_te, training_load, trimp, load, z1_s..z5_s, easy_s, moderate_s, hard_s, source`.
-`name` = the user's own name if set, else Garmin's (`garmin_name` is always Garmin's). `load` = Garmin `training_load` if present, else `trimp`. Also includes `n_laps, turns_per_km, stop_frac, o_prob` from `activity_features`.
+`activities` + tag + zones flattened: `activity_id, start_time_local, day, week_start, name, garmin_name, sport_type, event_type, tag, tag_source, extra_tags, duration_s, moving_s, hours, distance_m, elev_gain_m, avg_hr, max_hr, aerobic_te, anaerobic_te, training_load, trimp, load, z1_s..z5_s, easy_s, moderate_s, hard_s, source`.
+`name` = the user's own name if set, else Garmin's (`garmin_name` is always Garmin's). `extra_tags` = comma-separated extra tags (NULL = none). `load` = Garmin `training_load` if present, else `trimp`. Also includes `n_laps, turns_per_km, stop_frac, o_prob` from `activity_features`.
 
 ### `v_weekly`
 Per `week_start`: `sessions, hours, load, distance_km, elev_gain_m, z1_h..z5_h, easy_h, moderate_h, hard_h`.

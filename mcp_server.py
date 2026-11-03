@@ -120,6 +120,16 @@ def period(args: dict, default_days: int = 30) -> tuple[date, date]:
     return start, end
 
 
+def day_notes(start: date, end: date) -> list[str]:
+    """Calendar notes overlapping the period, as bullet lines (none on a database from before notes)."""
+    try:
+        n = df("SELECT date, end_date, kind, text FROM day_notes WHERE date <= ? AND COALESCE(end_date, date) >= ? "
+               "ORDER BY date", (end.isoformat(), start.isoformat()))
+    except (sqlite3.Error, pd.errors.DatabaseError):
+        return []
+    return [f"- {r.kind}: {r.text or ''} ({r.date}{' – ' + r.end_date if r.end_date else ''})" for r in n.itertuples()]
+
+
 def pct(a, b) -> str:
     return f"{100 * a / b:.0f}%" if b else "–"
 
@@ -150,6 +160,9 @@ def tool_training_summary(args: dict) -> str:
            f"- Intensity (share of HR-zone time): easy Z1–2 {pct(t['easy'], t['zone_total'])}, "
            f"moderate Z3 {pct(t['moderate'], t['zone_total'])}, hard Z4–5 {pct(t['hard'], t['zone_total'])} "
            f"(previous: easy {pct(p['easy'], p['zone_total'])}, hard {pct(p['hard'], p['zone_total'])})"]
+    notes = day_notes(start, end)
+    if notes:
+        out += ["", "## Notes (injury / illness / holiday)", *notes]
     if cur.empty:
         return "\n".join(out + ["", "No activities in this period."])
 
@@ -250,7 +263,7 @@ def tool_list_activities(args: dict) -> str:
     a = df(sql + " ORDER BY start_time_local DESC LIMIT ?", (*params, int(args.get("limit") or 100)))
     return f"Activities {start} – {end}:\n" + table(pd.DataFrame({
         "activity_id": a["activity_id"], "start": a["start_time_local"].str[:16], "tag": a["tag"],
-        "tag_source": a["tag_source"], "sport": a["sport_type"], "name": a["name"], "time": a["duration_s"].map(hm),
+        "extra_tags": a.get("extra_tags"), "tag_source": a["tag_source"], "sport": a["sport_type"], "name": a["name"], "time": a["duration_s"].map(hm),
         "km": (a["distance_m"] / 1000).round(1), "climb_m": a["elev_gain_m"], "avg_hr": a["avg_hr"],
         "load": a["load"], "easy_min": (a["easy_s"] / 60).round(0), "hard_min": (a["hard_s"] / 60).round(0),
         "laps": a["n_laps"]}))
@@ -263,7 +276,8 @@ def tool_get_activity(args: dict) -> str:
         return f"No activity with id {aid}."
     r = a.iloc[0]
     out = [f"# {r['name']} ({r['start_time_local']})",
-           f"- Sport {r['sport_type']}, tag {tag_labels().get(r['tag'], r['tag'])} ({r['tag_source'] or 'none'}), event {r['event_type']}",
+           f"- Sport {r['sport_type']}, tag {tag_labels().get(r['tag'], r['tag'])} ({r['tag_source'] or 'none'})"
+           + (f", extra tags {r['extra_tags']}" if isinstance(r.get("extra_tags"), str) else "") + f", event {r['event_type']}",
            f"- Time {hm(r['duration_s'])} (moving {hm(r['moving_s'])}), distance {(r['distance_m'] or 0) / 1000:.2f} km, "
            f"climb {r['elev_gain_m']} m",
            f"- HR avg {r['avg_hr']} / max {r['max_hr']}, Garmin load {r['training_load']}, TRIMP {r['trimp']}, "

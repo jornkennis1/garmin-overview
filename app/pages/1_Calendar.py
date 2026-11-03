@@ -1,4 +1,4 @@
-"""Calendar: month grid of activities, coloured by tag or by load, with weekly totals."""
+"""Calendar: month grid of activities, coloured by tag or by load, with weekly totals, races and notes."""
 
 import calendar
 import html
@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 
 import common as c
+import notes as nt
 import planning as pl
 
 c.setup_page("Calendar", "📅")
@@ -44,6 +45,11 @@ by_day = {d: g for d, g in in_grid.groupby("day")}
 # Planned races (Plan page), on every day of a multi-day race; shown regardless of the tag filter.
 rd = pl.race_days(pl.load_races())
 races_by_day = {d: g for d, g in rd[(rd["day"] >= grid_start) & (rd["day"] <= grid_end)].groupby("day")}
+# Injury / illness / holiday notes, edited below the calendar.
+all_notes = nt.load_notes()
+nd = nt.note_days(all_notes)
+notes_by_day = {d: g for d, g in nd[(nd["day"] >= grid_start) & (nd["day"] <= grid_end)].groupby("day")}
+NOTE_COLORS = {"injury": c.HR_LINE, "illness": c.SERIES_SECOND, "holiday": c.TEXT_MUTED, "other": c.TEXT_MUTED}
 
 CSS = f"""
 <style>
@@ -62,6 +68,10 @@ CSS = f"""
   border-radius:6px;padding:2px 6px;margin-bottom:4px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}}
 .cal a.race small{{color:{c.TEXT_MUTED};font-weight:400}}
 .legend .flag{{color:{c.TAG_COLORS["o_race"]};font-weight:700}}
+.cal div.note{{color:{c.TEXT};border-left:3px solid var(--c);background:{c.CHIP_BG};border-radius:4px;
+  padding:2px 6px;margin-bottom:4px;line-height:1.25;overflow-wrap:anywhere}}
+.cal div.note small{{color:{c.TEXT_MUTED}}}
+.legend .ni{{color:var(--c);font-weight:700}}
 .cal .wk b{{font-size:15px}}
 .legend{{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 2px;font-size:13px;color:{c.TEXT}}}
 .legend span{{display:inline-flex;align-items:center;gap:6px}}
@@ -74,7 +84,7 @@ def chip(a) -> str:
     color = c.swatch_css(a["tag"]) if color_by == "Tag" else f"linear-gradient({(lc := c.load_bucket_color(a['load']))}, {lc})"
     hr = f" · {a['avg_hr']:.0f} bpm" if pd.notna(a["avg_hr"]) else ""
     load = f" · load {a['load']:.0f}" if pd.notna(a["load"]) else ""
-    title = html.escape(f"{a['name'] or ''} — {c.TAG_LABELS.get(a['tag'], '')}")
+    title = html.escape(f"{a['name'] or ''} — {c.tag_text(a)}")
     return (
         f'<a class="act" style="--c:{color}" href="/Activity?id={a["activity_id"]}" target="_self" title="{title}">'
         f"<b>{c.fmt_duration(a['duration_s'])}</b> {html.escape(c.sport_label(a['sport_type']))}"
@@ -90,6 +100,13 @@ def race_banner(r) -> str:
             f'<small>({r["priority"]}){multi}</small></a>')
 
 
+def note_banner(n, day) -> str:
+    multi = f" · day {(day - n['date']).days + 1}/{n['days']}" if n["days"] > 1 else ""
+    text = n["text"] if isinstance(n["text"], str) and n["text"] else nt.KINDS[n["kind"]]
+    return (f'<div class="note" style="--c:{NOTE_COLORS.get(n["kind"], c.TEXT_MUTED)}" title="{html.escape(nt.describe(n))}">'
+            f'{nt.ICONS.get(n["kind"], "")} {html.escape(text)}<small>{multi}</small></div>')
+
+
 rows = ['<table class="cal"><tr>' + "".join(f"<th>{d}</th>" for d in calendar.day_abbr) + "<th>Week</th></tr>"]
 day = grid_start
 while day <= grid_end:
@@ -101,7 +118,8 @@ while day <= grid_end:
             cls.append("out")
         if day == today:
             cls.append("today")
-        content = "".join(race_banner(r) for _, r in races_by_day[day].iterrows()) if day in races_by_day else ""
+        content = "".join(note_banner(n, day) for _, n in notes_by_day[day].iterrows()) if day in notes_by_day else ""
+        content += "".join(race_banner(r) for _, r in races_by_day[day].iterrows()) if day in races_by_day else ""
         content += "".join(chip(a) for _, a in by_day[day].iterrows()) if day in by_day else ""
         cells.append(f'<td class="{" ".join(cls)}"><div class="dn">{day.day}</div>{content}</td>')
         day += pd.Timedelta(days=1)
@@ -119,7 +137,10 @@ else:
     items = [(f"load {lo}–{hi}" if hi else f"load {lo}+", col)
              for lo, hi, col in zip(bounds, bounds[1:], [f"linear-gradient({x}, {x})" for x in c.LOAD_RAMP])]
 legend = ('<div class="legend">' + "".join(f'<span style="--c:{col}"><i></i>{lbl}</span>' for lbl, col in items)
-          + '<span><b class="flag">⚑</b> Planned race (add on the Plan page)</span></div>')
+          + '<span><b class="flag">⚑</b> Planned race (add on the Plan page)</span>'
+          + "".join(f'<span style="--c:{NOTE_COLORS[k]}"><b class="ni">{nt.ICONS[k]}</b>{lbl}</span>'
+                    for k, lbl in nt.KINDS.items() if k != "other")
+          + "</div>")
 
 st.html(CSS + legend + "".join(rows))
 
@@ -128,3 +149,29 @@ st.caption(
     f"{month:%B}: {c.fmt_hours(month_acts['hours'].sum())} in {len(month_acts)} sessions, "
     f"load {month_acts['load'].sum():.0f}. Click an activity for details."
 )
+
+# ---------------------------------------------------------------- notes editor
+with st.expander("Injury, illness and holiday notes", icon=":material/healing:"):
+    st.caption("Note when you were injured, ill or away, so the breaks make sense later. During an injury, illness "
+               "or holiday the **Today** page doesn't warn about missing or light training. For more than one day, "
+               "fill in **Until**. Delete a row with the checkbox on the left and the bin icon.")
+    editor = all_notes.drop(columns=["days"]).assign(
+        date=all_notes["date"].dt.date, end_date=all_notes["end_date"].where(all_notes["days"] > 1).dt.date)
+    edited = st.data_editor(
+        editor, num_rows="dynamic", hide_index=True, key="note_editor",
+        column_order=["date", "end_date", "kind", "text"],
+        column_config={
+            "date": st.column_config.DateColumn("From", required=True, format="ddd DD MMM YYYY"),
+            "end_date": st.column_config.DateColumn("Until", format="ddd DD MMM YYYY",
+                                                    help="Last day; leave empty for one day"),
+            "kind": st.column_config.SelectboxColumn("Kind", options=list(nt.KINDS), default="illness",
+                                                     required=True, format_func=nt.KINDS.get),
+            "text": st.column_config.TextColumn("Note", max_chars=200, help="e.g. 'flu', 'sprained ankle', 'ski trip'"),
+        },
+    )
+    if st.button("Save notes", type="primary", key="save_notes",
+                 disabled=edited.reset_index(drop=True).equals(editor.reset_index(drop=True))):
+        nt.save_notes(edited, all_notes)
+        st.session_state.pop("note_editor", None)
+        st.toast("Notes saved")
+        st.rerun()

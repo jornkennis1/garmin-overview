@@ -9,7 +9,7 @@ import common as c
 import config
 from db.database import connect, get_state
 from garmin_sync.features import update_features
-from garmin_sync.tagging import apply_auto_tags, set_custom_name, set_manual_tag
+from garmin_sync.tagging import apply_auto_tags, set_custom_name, set_extra_tags, set_manual_tag
 
 c.setup_page("Tags", "🏷️")
 c.sidebar()
@@ -62,7 +62,7 @@ sports = sorted(acts["sport_type"].dropna().unique())
 run_sports = [s for s in sports if "run" in s]
 sport_sel = f[1].multiselect("Sport", sports, default=run_sports or None, format_func=c.sport_label,
                              placeholder="All sports")
-tag_sel = f[2].multiselect("Current tag", list(c.TAG_LABELS), format_func=c.TAG_LABELS.get, placeholder="All tags")
+tag_sel = f[2].multiselect("Tag", list(c.TAG_LABELS), format_func=c.TAG_LABELS.get, placeholder="All tags")
 only_auto = f[3].checkbox("Only auto", value=False, help="Hide activities you already tagged yourself.")
 sort = st.segmented_control("Sort", ["Newest first", "Most orienteering-like first"], default="Newest first",
                             key="tag_sort") or "Newest first"
@@ -73,7 +73,7 @@ if isinstance(date_range, tuple) and len(date_range) == 2:
 if sport_sel:
     view = view[view["sport_type"].isin(sport_sel)]
 if tag_sel:
-    view = view[view["tag"].isin(tag_sel)]
+    view = view[c.has_tag(view, tag_sel)]  # main or extra tag
 if only_auto:
     view = view[view["tag_source"] != "manual"]
 if sort != "Newest first":
@@ -95,22 +95,26 @@ table = pd.DataFrame({
     "Turns/km": view["turns_per_km"].round(1),
     "Stopped %": (view["stop_frac"] * 100).round(0),
     "Tag": view["tag"].map(c.TAG_LABELS),
+    "Extra tags": view["extras"].map(lambda xs: [c.TAG_LABELS[t] for t in xs if t in c.TAG_LABELS]),
     "Set by": view["tag_source"].map({"manual": "you", "auto": "auto"}),
 }).reset_index(drop=True)
 
 # The editor tracks edits by row position, so give each filter/sort combination its own editor state.
 editor_key = f"tag_editor_{hash(tuple(table['activity_id']))}"
-st.caption(f"{len(table)} activities. Change the **Tag** or **Name** column, then press **Save changes**. "
+st.caption(f"{len(table)} activities. Change the **Tag**, **Extra tags** or **Name** column, then press **Save changes**. "
            "Clear a name to go back to Garmin's name.")
 edited = st.data_editor(
     table,
     hide_index=True,
-    disabled=[col for col in table.columns if col not in ("Tag", "Name")],
+    disabled=[col for col in table.columns if col not in ("Tag", "Extra tags", "Name")],
     column_order=[col for col in table.columns if col not in ("activity_id", "garmin_name")],
     column_config={
         "Name": st.column_config.TextColumn("Name", max_chars=120,
                                             help="Your own name for the activity (Garmin's name stays as fallback)."),
         "Tag": st.column_config.SelectboxColumn("Tag", options=list(c.TAG_LABELS.values()), required=True),
+        "Extra tags": st.column_config.MultiselectColumn(
+            "Extra tags", options=[v for k, v in c.TAG_LABELS.items() if k != "other"],
+            help="Also counts as these (e.g. O training + Interval). The main **Tag** decides colours and totals."),
         "O score": st.column_config.ProgressColumn("O score", min_value=0, max_value=100, format="%.0f",
                                                    help="How orienteering-like the GPS track is (0–100)."),
     },
@@ -120,7 +124,8 @@ edited = st.data_editor(
 
 tag_changed = edited[edited["Tag"] != table["Tag"]]
 name_changed = edited[edited["Name"].fillna("").str.strip() != table["Name"]]
-n_changes = len(tag_changed) + len(name_changed)
+extra_changed = edited[[sorted(a or []) != sorted(b or []) for a, b in zip(edited["Extra tags"], table["Extra tags"])]]
+n_changes = len(tag_changed) + len(name_changed) + len(extra_changed)
 cols = st.columns([1, 4])
 if cols[0].button(f"Save changes ({n_changes})", type="primary", disabled=n_changes == 0):
     conn = connect()
@@ -130,11 +135,14 @@ if cols[0].button(f"Save changes ({n_changes})", type="primary", disabled=n_chan
             set_custom_name(conn, int(row["activity_id"]), None if new in ("", row["garmin_name"]) else new)
         for _, row in tag_changed.iterrows():
             set_manual_tag(conn, int(row["activity_id"]), label_to_key[row["Tag"]])
+        for _, row in extra_changed.iterrows():  # after the main tags: an extra equal to the main tag is dropped
+            set_extra_tags(conn, int(row["activity_id"]), [label_to_key[t] for t in row["Extra tags"] or []])
     finally:
         conn.close()
     c.clear_cache()
     st.session_state.pop(editor_key, None)
-    st.toast(f"Saved {len(name_changed)} name(s) and {len(tag_changed)} tag(s).")
+    st.toast(f"Saved {len(name_changed)} name(s), {len(tag_changed)} tag(s) and "
+             f"{len(extra_changed)} extra-tag change(s).")
     st.rerun()
 
 # ---------------------------------------------------------------- summary

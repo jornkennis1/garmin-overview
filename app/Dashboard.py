@@ -12,6 +12,7 @@ pages = [
     st.Page("pages/3_Recovery.py", title="Recovery", icon=":material/bedtime:", url_path="Recovery"),
     st.Page("pages/4_Activity.py", title="Activity", icon=":material/directions_run:", url_path="Activity"),
     st.Page("pages/7_O_Analysis.py", title="O-analysis", icon=":material/explore:", url_path="O-analysis"),
+    st.Page("pages/10_Report.py", title="Report", icon=":material/summarize:", url_path="Report"),
     st.Page("pages/5_Tags.py", title="Tags", icon=":material/sell:", url_path="Tags"),
     st.Page("pages/6_Settings.py", title="Settings", icon=":material/settings:", url_path="Settings"),
 ]

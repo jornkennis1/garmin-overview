@@ -6,6 +6,7 @@ import streamlit as st
 
 import common as c
 import insights
+import notes as nt
 import planning
 from garmin_sync.metrics import load_curves
 
@@ -31,7 +32,8 @@ acts = c.filter_tags(acts_all, tags)
 
 # ---------------------------------------------------------------- heads-up (all activities, ignores the tag filter)
 with st.expander("Heads-up", expanded=True, icon=":material/notifications:"):
-    items = insights.readiness(acts_all, daily, today)
+    brk = nt.current_break(nt.load_notes(), today)
+    items = insights.readiness(acts_all, daily, today, on_break=nt.describe(brk) if brk is not None else None)
     if items:
         insights.render(items)
     else:

@@ -1,5 +1,6 @@
 """Shared helpers for the dashboard pages: data loading, the global tag filter, colours, formatting."""
 
+import json
 import os
 import subprocess
 import sys
@@ -13,11 +14,9 @@ import pandas as pd  # noqa: E402
 import plotly.graph_objects as go  # noqa: E402
 import streamlit as st  # noqa: E402
 
-import json  # noqa: E402
-
 import config  # noqa: E402
 from db.database import connect, get_state, set_state  # noqa: E402
-from garmin_sync.tagging import load_custom_tags  # noqa: E402
+from garmin_sync.tagging import has_tag, load_custom_tags  # noqa: E402,F401  (has_tag: for the pages)
 
 # ---------------------------------------------------------------- colours (light + dark)
 # Categorical slots in fixed order (validated for colour-blind separation in both modes); one per tag.
@@ -74,8 +73,15 @@ def apply_theme() -> None:
     extra colours are needed. Single-user local app, so module globals are fine; they are set at the
     start of every page run.
     """
-    theme = THEMES["dark" if is_dark() else "light"]
-    globals().update(theme)
+    mode = "dark" if is_dark() else "light"
+    globals().update(THEMES[mode])
+    labels, colors, patterns = tag_maps(mode)
+    globals().update(TAG_LABELS=labels, TAG_COLORS=colors, TAG_PATTERNS=patterns)
+
+
+def tag_maps(mode: str) -> tuple[dict, dict, dict]:
+    """(labels, colours, hatch patterns) per tag key for a theme, your own tags included, "other" last."""
+    theme = THEMES[mode]
     palette = list(theme["TAG_COLORS"].values())[:8]
     conn = connect()
     try:
@@ -88,7 +94,7 @@ def apply_theme() -> None:
         labels[t["key"]] = t["label"]
         colors[t["key"]] = palette[t["color_slot"] % 8]
     labels["other"], colors["other"] = config.TAGS["other"], theme["TAG_COLORS"]["other"]
-    globals().update(TAG_LABELS=labels, TAG_COLORS=colors, TAG_PATTERNS={t["key"]: "/" for t in custom})
+    return labels, colors, {t["key"]: "/" for t in custom}
 
 
 apply_theme()
@@ -157,6 +163,11 @@ def load_activities() -> pd.DataFrame:
     df["day"] = pd.to_datetime(df["day"])
     df["week_start"] = pd.to_datetime(df["week_start"])
     df["hours"] = df["hours"].fillna(0)
+    # Columns that are NULL for every activity (e.g. no GPS features after `--no-details`) load as objects.
+    for col in ("n_laps", "turns_per_km", "stop_frac", "o_prob", "trimp", "training_load", "aerobic_te",
+                "anaerobic_te", "avg_hr", "max_hr", "elev_gain_m", "distance_m", "moving_s"):
+        df[col] = pd.to_numeric(df[col])
+    df["extras"] = df["extra_tags"].fillna("").map(lambda v: [t for t in v.split(",") if t])
     return df
 
 
@@ -250,11 +261,15 @@ def _sync_sidebar() -> None:
                 lines.append(line.rstrip())
                 box.code("\n".join(lines[-10:]), language=None)
             proc.wait()
+            st.session_state["sync_log"] = lines
             if proc.returncode == 0:
                 clear_cache()
                 st.session_state["sync_msg"] = lines[-1] if lines else "Sync complete."
                 st.rerun()
-            status.update(label="Sync failed: see the output above", state="error")
+            status.update(label="Sync failed: see the output below", state="error")
+    if log := st.session_state.get("sync_log"):
+        with st.sidebar.expander(f"Last sync log ({len(log)} lines)"):
+            st.code("\n".join(log), language=None)
     conn = connect()
     try:
         last = get_state(conn, "last_sync")
@@ -297,7 +312,13 @@ def name_editor(a: pd.Series, key: str) -> None:
 
 
 def filter_tags(df: pd.DataFrame, tags: list[str]) -> pd.DataFrame:
+    """Activities whose main tag is shown (the main tag decides totals, so nothing is counted twice)."""
     return df[df["tag"].isin(tags)]
+
+
+def tag_text(a) -> str:
+    """'Orienteering training + Interval': main tag label plus extra tags."""
+    return " + ".join(TAG_LABELS.get(t, t) for t in [a["tag"], *a["extras"]])
 
 
 def require_data(df: pd.DataFrame, what: str = "activities") -> None:
