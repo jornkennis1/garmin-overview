@@ -23,9 +23,23 @@ def connect(db_path: Path = config.DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+def add_column(table: str, column_def: str):
+    """Migration step that adds a column unless it's already there.
+
+    Use it for tables that are newer than some databases: schema.sql runs before the migrations and
+    creates a missing table in its end state, column included, so a plain ADD COLUMN would fail.
+    """
+    def step(conn: sqlite3.Connection) -> None:
+        cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column_def.split()[0] not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")
+    return step
+
+
 # Changes to existing tables, applied once each, in order (tracked with PRAGMA user_version).
+# Each is an SQL script or a function of the connection (e.g. add_column).
 # New tables/views/indexes go straight into schema.sql; also update schema.sql to the end state.
-MIGRATIONS: list[str] = [
+MIGRATIONS: list = [
     # 1: new tags (cycling, hiking_walking). SQLite can't alter a CHECK constraint, so rebuild the table.
     """
     DROP VIEW IF EXISTS v_weekly;
@@ -66,8 +80,8 @@ MIGRATIONS: list[str] = [
     ALTER TABLE activity_tags_new RENAME TO activity_tags;
     CREATE INDEX IF NOT EXISTS idx_tags_tag ON activity_tags(tag);
     """,
-    # 6: multi-day races
-    "ALTER TABLE races ADD COLUMN end_date TEXT;",
+    # 6: multi-day races (races is newer than some databases, so only add the column if it's missing)
+    add_column("races", "end_date TEXT"),
 ]
 
 
@@ -75,7 +89,10 @@ def _migrate(conn: sqlite3.Connection) -> bool:
     """Apply pending migrations. Returns True if any ran."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     for i, script in enumerate(MIGRATIONS[version:], start=version + 1):
-        conn.executescript(script)
+        if callable(script):
+            script(conn)
+        else:
+            conn.executescript(script)
         conn.execute(f"PRAGMA user_version = {i}")
         conn.commit()
     return version < len(MIGRATIONS)

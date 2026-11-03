@@ -12,4 +12,5 @@ Private, local-only training dashboard for an orienteer (Garmin data → SQLite 
 - Activity names: sync writes `activities.name`; the user's own name is `custom_name`. Always read names via `v_activities.name`.
 - `app/planning.py` + `app/pages/9_Plan.py`: races, weekly plans (tables `races`, `week_plans`), form projection, taper, season comparison.
 - `app/o_maps.py` + `app/pages/7_O_Analysis.py`: course maps aligned to GPS tracks (images in `data/maps/`, alignment in `o_maps`).
-- Schema changes: new tables/views go in `db/schema.sql`; changes to existing tables go in `MIGRATIONS` in `db/database.py`. Keep `DATA.md` in sync.
+- Tests: `.venv\Scripts\python -m pytest -q` (`tests/`, dev deps in `requirements-dev.txt`). Made-up data only, never copy from `data/`. `tests/conftest.py` points config at temp paths.
+- Schema changes: new tables/views go in `db/schema.sql`; changes to existing tables go in `MIGRATIONS` in `db/database.py` (use `add_column` for tables newer than some databases; `tests/test_migrations.py` checks old databases migrate). Keep `DATA.md` in sync.
