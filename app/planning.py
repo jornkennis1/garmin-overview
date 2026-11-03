@@ -8,7 +8,7 @@ import config
 from db.database import connect
 from insights import Insight
 
-DISCIPLINES = ["sprint", "middle", "long", "relay", "night", "ultralong", "other"]
+DISCIPLINES = ["sprint", "middle", "long", "relay", "sprint relay", "night", "ultralong", "other"]
 PRIORITIES = {"A": "A · main goal", "B": "B · important", "C": "C · training race"}
 # Share of normal weekly volume in the weeks before a race (keys: weeks before the race week; 0 = race week).
 # Volume goes down, intensity stays: that keeps fitness while fatigue clears.
