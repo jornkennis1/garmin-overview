@@ -27,7 +27,12 @@ def venv_python() -> Path:
 def config_path() -> Path:
     """Claude Desktop's config file (it may not exist yet)."""
     if sys.platform == "win32":
-        # The Microsoft Store / MSIX install keeps its config in a virtualised folder.
+        # Newer Microsoft Store / MSIX versions moved their data to %LOCALAPPDATA%\Claude-Data\claude_<id>.
+        data = Path(os.environ.get("LOCALAPPDATA", "")) / "Claude-Data"
+        for pkg in sorted(p for p in data.glob("*") if p.is_dir()) if data.exists() else []:
+            if pkg.name.lower().startswith("claude_"):
+                return pkg / "claude_desktop_config.json"
+        # Older MSIX versions keep it in a virtualised folder.
         packages = Path(os.environ.get("LOCALAPPDATA", "")) / "Packages"
         for pkg in sorted(packages.glob("Claude_*")) if packages.exists() else []:
             msix = pkg / "LocalCache" / "Roaming" / "Claude"
