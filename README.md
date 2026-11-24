@@ -16,6 +16,8 @@ Everything runs on your own computer; nothing is hosted anywhere.
 
 ## Quick start
 
+> **Never used a terminal or git?** Follow [GETTING_STARTED.md](GETTING_STARTED.md) instead: a step-by-step guide without technical knowledge.
+
 You need **Python 3.12 or newer** ([python.org](https://www.python.org/downloads/); on Windows tick *Add python.exe to PATH*) and **git**.
 
 **Windows** (PowerShell):
